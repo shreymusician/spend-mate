@@ -20,13 +20,14 @@ import type { FamilyOverview, Summary, Transaction } from '@/types';
 
 const spring = { type: 'spring' as const, stiffness: 260, damping: 26 };
 const POLL_MS = 15_000;
+const SLOW_POLL_MS = 90_000; // a safety net only; live updates do the real work
 
 /** Home for someone who follows children: the family at a glance first, their own money second. */
 export function ParentHome() {
   const { user } = useAuth();
-  const { version } = useData();
+  const { version, live } = useData();
   const nav = useNavigate();
-  const tick = usePoll(POLL_MS);
+  const tick = usePoll(live ? SLOW_POLL_MS : POLL_MS);
   const ov = useFetch<FamilyOverview>(`/family/overview?month=${currentMonth()}`, [tick, version]);
   const own = useFetch<Summary>(`/analytics/summary?month=${currentMonth()}`, [version]);
   const [add, setAdd] = useState<'expense' | 'income' | null>(null);

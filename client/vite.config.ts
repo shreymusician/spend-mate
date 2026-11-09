@@ -7,5 +7,6 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: { alias: { '@': path.resolve(import.meta.dirname, 'src') } },
   // SPENDMATE_API lets a second copy point at a different API (e.g. an in-memory test server).
-  server: { proxy: { '/api': process.env.SPENDMATE_API ?? 'http://localhost:4000' } },
+  // ws: true lets the live-update connection (/api/realtime) pass through the dev proxy too.
+  server: { proxy: { '/api': { target: process.env.SPENDMATE_API ?? 'http://localhost:4000', ws: true } } },
 });

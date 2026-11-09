@@ -1,9 +1,11 @@
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import express from 'express';
 import helmet from 'helmet';
 import morgan from 'morgan';
-import { env } from './config/env.js';
+import { env, isProd } from './config/env.js';
 import { errorHandler, notFoundHandler } from './middleware/error.js';
 import { authRouter } from './modules/auth/auth.routes.js';
 import { usersRouter } from './modules/users/users.routes.js';
@@ -31,6 +33,19 @@ export function createApp() {
   app.use('/api/budgets', budgetsRouter);
   app.use('/api/analytics', analyticsRouter);
   app.use('/api/family', familyRouter);
+
+  // In production one server delivers both the API and the app, so they share one address. That is what lets the
+  // strict same-site sign-in cookie and the live connection work with no cross-site settings.
+  const dist = fileURLToPath(new URL('../../client/dist', import.meta.url));
+  if (isProd && existsSync(dist)) {
+    app.use(express.static(dist, { index: false, maxAge: '1h', setHeaders: (res, p) => { if (p.includes('/assets/')) res.setHeader('Cache-Control', 'public, max-age=31536000, immutable'); } }));
+    // Any other page address (like /history) is a screen inside the app: send the app and let it route.
+    app.use((req, res, next) => {
+      if (req.method !== 'GET' || req.path.startsWith('/api')) return next();
+      res.setHeader('Cache-Control', 'no-cache');
+      res.sendFile(`${dist}/index.html`);
+    });
+  }
 
   app.use(notFoundHandler);
   app.use(errorHandler);

@@ -1,0 +1,27 @@
+# Render "Blueprint": one web service that serves both the API and the app (same address, so the
+# strict sign-in cookie and the live connection just work). See docs/DEPLOY.md.
+services:
+  - type: web
+    name: spendmate
+    runtime: node
+    plan: free # use "starter" for real use: free services go to sleep when idle and drop live connections
+    buildCommand: npm --prefix client ci --include=dev && npm --prefix client run build && npm --prefix server ci --include=dev && npm --prefix server run build
+    startCommand: npm --prefix server start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: 22
+      # Your MongoDB Atlas connection string. Paste it in the Render dashboard; it is never stored in git.
+      - key: MONGODB_URI
+        sync: false
+      # Made once by Render and kept. Back PIN_PEPPER up somewhere safe: if it is ever lost or changed,
+      # every Secret Pin stops working.
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: PIN_PEPPER
+        generateValue: true
+      # The public address of this service, e.g. https://spendmate.onrender.com
+      - key: CLIENT_ORIGIN
+        sync: false

@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import { createHash, createHmac, randomBytes, randomUUID } from 'node:crypto';
 import { env } from '../../config/env.js';
 import { signAccessToken } from '../../middleware/auth.js';
+import { disconnectUser } from '../../realtime/hub.js';
 import { describeDevice } from '../../utils/device.js';
 import { badRequest, conflict, HttpError, unauthorized } from '../../utils/errors.js';
 import { audit } from '../audit/audit.model.js';
@@ -115,6 +116,7 @@ export async function resetPin(input: { mobile: string; dob: string; pin: string
 
   await User.updateOne({ _id: user._id }, { pinHash: await hashPin(input.mobile, input.pin), failedPinAttempts: 0, $unset: { lockedUntil: 1 } });
   await RefreshToken.updateMany({ user: user._id, revokedAt: null }, { revokedAt: new Date() });
+  disconnectUser(String(user._id)); // every signed-in device is signed out, including its live connection
   await audit(String(user._id), 'user', user._id, 'update', undefined, { pinReset: true });
 }
 

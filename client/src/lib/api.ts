@@ -14,6 +14,7 @@ let lastDevice: Device | null = null;
 export const takeRestoredDevice = () => lastDevice;
 
 export const setAccessToken = (t: string | null) => { accessToken = t; };
+export const getAccessToken = () => accessToken;
 export const setSessionLostHandler = (fn: () => void) => { onSessionLost = fn; };
 
 export class ApiError extends Error {

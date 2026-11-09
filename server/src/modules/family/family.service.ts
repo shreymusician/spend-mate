@@ -1,6 +1,7 @@
 import { randomInt } from 'node:crypto';
 import { Types } from 'mongoose';
 import { badRequest, conflict, notFound } from '../../utils/errors.js';
+import { commentAdded, linkChanged, sharingChanged } from '../../realtime/notify.js';
 import { audit } from '../audit/audit.model.js';
 import { monthlySummary } from '../analytics/analytics.js';
 import { Transaction } from '../transactions/transaction.model.js';
@@ -61,6 +62,7 @@ export async function acceptInvite(userId: string, rawCode: string) {
     throw e;
   }
   await audit(userId, 'relationship', link!._id, 'create', undefined, { parent, child });
+  linkChanged(parent, child);
   return { linkId: String(link!._id) };
 }
 
@@ -87,6 +89,7 @@ export async function removeLink(userId: string, linkId: string) {
   );
   if (!link) throw notFound('Link not found');
   await audit(userId, 'relationship', link._id, 'delete', { parent: String(link.parent), child: String(link.child) });
+  linkChanged(String(link.parent), String(link.child));
 }
 
 /** Throws "not found" unless `parentId` is an active parent of `childId` (no hint that the child exists). */
@@ -100,6 +103,7 @@ export async function assertParentOf(parentId: string, childId: string) {
 export async function setAllVisibility(userId: string, visibility: 'shared' | 'private') {
   const r = await Transaction.updateMany({ user: userId, deletedAt: null }, { visibility });
   await audit(userId, 'sharing', new Types.ObjectId(userId), 'update', undefined, { visibility, count: r.modifiedCount });
+  sharingChanged(userId);
   return { updated: r.modifiedCount };
 }
 
@@ -131,6 +135,7 @@ export async function addComment(userId: string, txId: string, body: string) {
   const { tx, isOwner } = await viewableTransaction(userId, txId);
   if (isOwner) throw badRequest('Only a parent can comment on an entry');
   const c = await Comment.create({ transaction: tx._id, author: userId, body });
+  commentAdded(String(tx.user), userId, String(tx._id));
   return { id: String(c._id) };
 }
 

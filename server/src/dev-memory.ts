@@ -9,4 +9,6 @@ const { env } = await import('./config/env.js');
 
 const mongod = await MongoMemoryServer.create();
 await mongoose.connect(mongod.getUri());
-createApp().listen(env.PORT, () => console.log(`SpendMate API (in-memory DB) on :${env.PORT}`));
+const { attachRealtime } = await import('./realtime/hub.js');
+const server = createApp().listen(env.PORT, () => console.log(`SpendMate API (in-memory DB) on :${env.PORT}`));
+attachRealtime(server);

@@ -2,6 +2,7 @@ import { Types, type QueryFilter } from 'mongoose';
 import { badRequest, notFound } from '../../utils/errors.js';
 import { audit, AuditLog } from '../audit/audit.model.js';
 import { assertCategory } from '../categories/categories.js';
+import { transactionChanged } from '../../realtime/notify.js';
 import { Transaction, publicTransaction, type TransactionDoc } from './transaction.model.js';
 import type { z } from 'zod';
 import type { createTransactionSchema, listQuerySchema, updateTransactionSchema } from './transactions.validators.js';
@@ -24,6 +25,7 @@ export async function createTransaction(userId: string, input: CreateInput) {
   try {
     const doc = (await Transaction.create({ ...input, user: userId })) as unknown as TransactionDoc;
     await audit(userId, 'transaction', doc._id, 'create', undefined, snapshot(doc));
+    transactionChanged(userId, { shared: doc.visibility === 'shared', txId: String(doc._id) });
     return { transaction: publicTransaction(doc), duplicate: false };
   } catch (e) {
     // Lost a race against the unique clientId index.
@@ -57,6 +59,8 @@ export async function updateTransaction(userId: string, id: string, patch: Updat
   doc.set(patch);
   await doc.save();
   await audit(userId, 'transaction', doc._id, 'update', before, snapshot(doc));
+  // A parent must hear about it if the entry was shared before or is shared now (including being hidden again).
+  transactionChanged(userId, { shared: before.visibility === 'shared' || doc.visibility === 'shared', txId: String(doc._id) });
   return publicTransaction(doc);
 }
 
@@ -66,6 +70,7 @@ export async function deleteTransaction(userId: string, id: string) {
   doc.set({ deletedAt: new Date() });
   await doc.save();
   await audit(userId, 'transaction', doc._id, 'delete', before);
+  transactionChanged(userId, { shared: before.visibility === 'shared', txId: String(doc._id) });
 }
 
 export async function transactionHistory(userId: string, id: string) {

@@ -21,7 +21,7 @@ import type { FamilyOverview, Transaction } from '@/types';
 type Role = 'parent' | 'child';
 
 export function FamilyPage() {
-  const { family, reloadFamily, bump, version } = useData();
+  const { family, reloadFamily, bump, version, live } = useData();
   const toast = useToast();
   const nav = useNavigate();
   const [invite, setInvite] = useState<{ code: string; expiresAt: string } | null>(null);
@@ -31,7 +31,7 @@ export function FamilyPage() {
   const [confirmUnlink, setConfirmUnlink] = useState<string | null>(null);
   const [confirmAll, setConfirmAll] = useState<'shared' | 'private' | null>(null);
   const [selected, setSelected] = useState<Transaction | null>(null);
-  const tick = usePoll(15_000);
+  const tick = usePoll(live ? 90_000 : 15_000);
   const ov = useFetch<FamilyOverview>(family.children.length > 0 ? `/family/overview?month=${currentMonth()}` : null, [tick, version, family.children.length]);
 
   async function makeInvite(role: Role) {

@@ -15,21 +15,23 @@ import type { Summary } from '@/types';
 
 type View = 'list' | 'summary';
 const POLL_MS = 15_000;
+const SLOW_POLL_MS = 90_000; // a safety net only; live updates do the real work
 
 /** A parent's read-only view of one child's *shared* entries. Refreshes itself every 15 seconds. */
 export function ChildPage() {
   const { childId = '' } = useParams();
-  const { family, familyLoaded } = useData();
+  const { family, familyLoaded, version, live } = useData();
+  const pollMs = live ? SLOW_POLL_MS : POLL_MS;
   const nav = useNavigate();
   const [view, setView] = useState<View>('list');
   const [tick, setTick] = useState(0);
   useEffect(() => {
-    const id = setInterval(() => document.visibilityState === 'visible' && setTick((t) => t + 1), POLL_MS);
+    const id = setInterval(() => document.visibilityState === 'visible' && setTick((t) => t + 1), pollMs);
     return () => clearInterval(id);
-  }, []);
+  }, [pollMs]);
 
   const link = family.children.find((c) => c.user.id === childId);
-  const summary = useFetch<Summary>(link ? `/family/children/${childId}/summary?month=${currentMonth()}` : null, [tick]);
+  const summary = useFetch<Summary>(link ? `/family/children/${childId}/summary?month=${currentMonth()}` : null, [tick, version]);
 
   if (familyLoaded && !link) return <Navigate to="/family" replace />;
   if (!link) return <Skeleton className="h-40 w-full" />;
@@ -57,8 +59,8 @@ export function ChildPage() {
 
       <Segmented<View> label="View" value={view} onChange={setView} options={[{ value: 'list', label: 'All entries' }, { value: 'summary', label: 'Summary' }]} />
       {view === 'list'
-        ? <TransactionList basePath={`/family/children/${childId}/transactions`} readOnly pollMs={POLL_MS} />
-        : <SummaryView summaryPath={`/family/children/${childId}/summary`} trendPath={`/family/children/${childId}/trend`} readOnly pollMs={POLL_MS} />}
+        ? <TransactionList basePath={`/family/children/${childId}/transactions`} readOnly pollMs={pollMs} />
+        : <SummaryView summaryPath={`/family/children/${childId}/summary`} trendPath={`/family/children/${childId}/trend`} readOnly pollMs={pollMs} />}
     </div>
   );
 }

@@ -85,7 +85,8 @@ function Comments({ txId, canWrite }: { txId: string; canWrite: boolean }) {
   const load = useCallback(async () => {
     try { setList((await api<{ comments: Comment[] }>(`/family/transactions/${txId}/comments`)).comments); } catch { setList([]); }
   }, [txId]);
-  useEffect(() => { load(); }, [load]);
+  const { version } = useData();
+  useEffect(() => { load(); }, [load, version]); // version changes when the server says something moved
 
   async function send(e: FormEvent) {
     e.preventDefault();

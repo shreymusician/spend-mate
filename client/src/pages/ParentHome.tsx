@@ -8,10 +8,10 @@ import { TransactionSheet } from '@/components/finance/TransactionSheet';
 import { Amount } from '@/components/ui/Amount';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
+import { HomeHeader } from '@/components/ui/HomeHeader';
 import { Card, CardTitle } from '@/components/ui/Card';
 import { CountUp } from '@/components/ui/CountUp';
 import { Skeleton } from '@/components/ui/Skeleton';
-import { useAuth } from '@/contexts/AuthContext';
 import { useData } from '@/contexts/DataContext';
 import { useFetch, usePoll } from '@/hooks';
 import { currentMonth } from '@/lib/dates';
@@ -24,7 +24,6 @@ const SLOW_POLL_MS = 90_000; // a safety net only; live updates do the real work
 
 /** Home for someone who follows children: the family at a glance first, their own money second. */
 export function ParentHome() {
-  const { user } = useAuth();
   const { version, live } = useData();
   const nav = useNavigate();
   const tick = usePoll(live ? SLOW_POLL_MS : POLL_MS);
@@ -35,14 +34,10 @@ export function ParentHome() {
 
   const o = ov.data;
   const n = o?.children.length ?? 0;
-  const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' });
 
   return (
     <div className="space-y-5">
-      <header className="pt-1">
-        <p className="text-[14px] font-semibold uppercase tracking-[0.04em] text-muted">{today}</p>
-        <h1 className="text-[34px] font-bold leading-[1.1] tracking-[-0.03em]">Hello, {user?.name.split(' ')[0]}</h1>
-      </header>
+      <HomeHeader />
 
       <motion.section
         initial={{ opacity: 0, y: 16, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={spring}

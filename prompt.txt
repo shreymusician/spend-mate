@@ -1,0 +1,92 @@
+PROMPT FOR THE LOGO DESIGN AGENT
+=================================
+
+ROLE
+You are a senior brand and icon designer. Design a new logo for a mobile-first money-tracking app called "SpendMate". Deliver production-ready SVG files and a short rationale. Do not use stock icons or templates; draw original shapes.
+
+
+ABOUT THE PRODUCT
+- Name: SpendMate. Tagline: "Know where your money goes."
+- What it does: a person writes down what they spend and why, sees clear monthly summaries, and can choose to share selected entries with a parent or family member (who can only view them).
+- Audience: students and young adults tracking pocket money, and their parents. Many parents are not tech-savvy, so the logo must feel friendly, calm and trustworthy, never flashy or "crypto".
+- Market: India (amounts are in rupees), but the logo must not rely on a currency symbol.
+- It is a web app used on phones and installed to the home screen like a native iPhone app. The design language is Apple iOS: clean, soft rounded shapes, frosted glass, subtle depth, restrained gradients.
+
+
+WHAT IS WRONG WITH THE CURRENT LOGO (replace it entirely)
+- It is a green gradient rounded square with a white rupee sign (₹) inside. That is generic: it looks like every finance app and any template.
+- It is not memorable, says nothing about "mate" (companionship / sharing) or "tracking", and is tied to one currency.
+
+
+DESIGN GOAL
+Create ONE distinctive symbol (a "mark") plus a wordmark, that feels modern, warm and unmistakably SpendMate. It should be recognisable at 16 px (browser tab) and look premium at 1024 px (app icon).
+
+Concept directions to explore (pick the strongest and justify it; you may combine two):
+1. "Two paths, one line": two simple shapes (the person and their mate/parent) joined by a single flowing line that also reads as a spending trend or an "S". Suggests tracking plus sharing.
+2. "Ledger leaf": an abstract bookmark / receipt fold that doubles as a leaf or upward stroke, hinting at money growing and being noted.
+3. "Overlapping rings": two overlapping rounded forms (like a friendly handshake or a pair of coins seen from the side) whose overlap is a different shade, hinting at "shared view".
+4. A monogram "S" built from two mirrored, rounded strokes, with a small notch or dot that signals "an entry noted".
+Whatever you choose: one idea, few shapes, bold and simple. A person should be able to redraw it from memory.
+
+
+MUST AVOID (cliches and traps)
+- Rupee, dollar, euro or any currency sign; piggy banks; coin stacks; wallets; banknotes; credit cards; padlocks; shields; rockets; bar-chart icons; magnifying glasses.
+- A plain letter "S" in a circle or square, or a lightly modified existing font glyph.
+- Purple-to-blue "startup gradient", neon, glassy 3D bevels, glows, drop shadows baked into the artwork, or more than 3 colours in the mark.
+- Anything that resembles the logos of Apple, Google Pay, PhonePe, Paytm, Splitwise, Mint, YNAB, Revolut, Cash App or other existing apps. Check for lookalikes before delivering.
+- Text inside the symbol. Thin strokes under 4% of the mark height (they vanish when small).
+
+
+COLOUR (must match the app)
+- Brand gradient used across the app: #34E3B0 (mint) to #0FA37F (emerald) to #0A7A8D (deep teal), at about 140 degrees.
+- Light theme: background #F2F2F7 with white cards and near-black text #0E0F12.
+- Dark theme: background #000000 with #1C1C1E cards and near-white text #F5F5F7.
+- The mark should use the gradient (or a flat #0FA37F fallback). You may add ONE small accent in warm amber #FFC46B (used sparingly, for example a single dot) if it helps the idea.
+- The logo must pass contrast on both light and dark backgrounds. Provide a one-colour version that works in pure white and pure black.
+
+
+TYPOGRAPHY (wordmark)
+- Wordmark text: "SpendMate" (capital S, capital M, no space).
+- Style: a clean geometric or humanist sans, medium to semibold weight, slightly tight letter-spacing, in the spirit of SF Pro / Inter / Manrope / Plus Jakarta Sans. Rounded terminals are welcome. Convert text to outlines in the final SVG so it renders identically everywhere.
+- Consider making the "M" or the join between "Spend" and "Mate" echo the symbol.
+
+
+DELIVERABLES (create these files)
+Write everything into the project folder: client/public/brand/ (create it).
+1. mark.svg                 - symbol only, full colour (gradient), transparent background, square viewBox 0 0 512 512, 8% safe padding.
+2. mark-mono-black.svg and mark-mono-white.svg - one-colour versions.
+3. logo-horizontal.svg      - symbol + wordmark side by side, for light backgrounds.
+4. logo-horizontal-dark.svg - the same, tuned for dark backgrounds.
+5. app-icon.svg             - 1024x1024 full-bleed square with the mark centred (iOS rounds the corners itself, so do NOT draw rounded corners or a border). Keep the important artwork inside the central 80%.
+6. app-icon-maskable.svg    - same, but all important artwork inside the central 60% circle (for Android maskable icons).
+7. favicon.svg              - simplified mark that stays legible at 16x16 and 32x32 (fewer details than mark.svg).
+8. PNG exports of the app icon: icon-512.png, icon-192.png, apple-touch-icon-180.png, favicon-32.png.
+9. A small preview page client/public/brand/preview.html that shows every file on light and dark backgrounds, and at 16, 32, 64 and 180 px.
+10. brand-notes.md: the concept in 3 to 5 sentences, the colour values, clear-space and minimum-size rules (for example "minimum 16 px"), and 3 "do not" examples.
+
+SVG QUALITY RULES
+- Hand-written, clean SVG: no embedded raster images, no external fonts, no filters or blur (they render inconsistently), no clip-paths unless unavoidable. Use <linearGradient> for the brand gradient. Use simple paths and rounded joins. Keep each file under 6 KB.
+- Use viewBox, no fixed width/height attributes. Add <title> and role="img" for accessibility.
+- Everything must render the same in Chrome, Safari on iPhone, and Firefox.
+
+
+HOW TO CHECK YOUR WORK
+- Render the preview page and look at it at 16 px and 32 px: the idea must still be readable.
+- Squint test: blur your eyes; you should still see one clear shape.
+- Show the mark on the real app screens (the landing page and the blue-green "Money you have" card) mentally or via a mock-up image and confirm it does not clash.
+- Compare against the "must avoid" list above.
+
+
+INTEGRATION (after the design is approved by the user)
+Only after delivering the files above and getting approval, update the app:
+- client/index.html: favicon links, apple-touch-icon and theme-color.
+- client/src/components/ui/Logo.tsx: replace the current gradient square with the new mark (keep the same size prop; inline the SVG so it themes properly).
+- Landing page (client/src/pages/LandingPage.tsx) and the sign-in header already use <Logo />; confirm they still look right in light and dark mode.
+- Do not change anything else in the app.
+
+
+OUTPUT FORMAT
+1. A short rationale (maximum 150 words): the concept, why it suits SpendMate, and how it avoids the cliches.
+2. Two alternative concepts as quick sketches (mark only) so the user can choose, then fully develop the one the user picks.
+3. The files listed in DELIVERABLES.
+Ask the user at most one question, and only if something is truly blocking.

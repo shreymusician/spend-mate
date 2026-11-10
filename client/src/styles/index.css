@@ -76,6 +76,8 @@
 .brand-gradient { background: linear-gradient(140deg, #34e3b0 0%, #0fa37f 48%, #0a7a8d 100%); }
 
 html, body, #root { height: 100%; }
+/* A sideways swipe belongs to the app (it changes tabs), so the browser's own swipe-back / swipe-forward is turned off. */
+html { overscroll-behavior-x: none; }
 
 body {
   margin: 0;

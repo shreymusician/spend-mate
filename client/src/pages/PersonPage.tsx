@@ -18,9 +18,9 @@ type View = 'list' | 'summary';
 const POLL_MS = 15_000;
 const SLOW_POLL_MS = 90_000; // a safety net only; live updates do the real work
 
-/** A parent's read-only view of one child's *shared* entries. Refreshes itself every 15 seconds. */
-export function ChildPage() {
-  const { childId = '' } = useParams();
+/** A read-only view of one person's *shared* entries, for someone you follow. Refreshes itself while you look. */
+export function PersonPage() {
+  const { personId = '' } = useParams();
   const { family, familyLoaded, version, live } = useData();
   const pollMs = live ? SLOW_POLL_MS : POLL_MS;
   const nav = useNavigate();
@@ -31,8 +31,8 @@ export function ChildPage() {
     return () => clearInterval(id);
   }, [pollMs]);
 
-  const link = family.children.find((c) => c.user.id === childId);
-  const summary = useFetch<Summary>(link ? `/family/children/${childId}/summary?month=${currentMonth()}` : null, [tick, version]);
+  const link = family.following.find((c) => c.user.id === personId);
+  const summary = useFetch<Summary>(link ? `/family/people/${personId}/summary?month=${currentMonth()}` : null, [tick, version]);
 
   if (familyLoaded && !link) return <Navigate to="/family" replace />;
   if (!link) return <BrandLoader size="inline" className="pt-24" />;
@@ -44,6 +44,7 @@ export function ChildPage() {
       <Button variant="link" onClick={() => nav('/family')} className="-ml-1"><ArrowLeft size={20} aria-hidden />Back</Button>
       <header>
         <h1 className="text-[34px] font-bold leading-[1.1] tracking-[-0.03em]">{link.user.name}</h1>
+        <p className="mt-0.5 text-[16px] font-semibold text-accent">{link.relation}</p>
         <p className="text-muted">View only. You can see the entries {first} chose to share.</p>
       </header>
 
@@ -60,8 +61,8 @@ export function ChildPage() {
 
       <Segmented<View> label="View" value={view} onChange={setView} options={[{ value: 'list', label: 'All entries' }, { value: 'summary', label: 'Summary' }]} />
       {view === 'list'
-        ? <TransactionList basePath={`/family/children/${childId}/transactions`} readOnly pollMs={pollMs} />
-        : <SummaryView summaryPath={`/family/children/${childId}/summary`} trendPath={`/family/children/${childId}/trend`} readOnly pollMs={pollMs} />}
+        ? <TransactionList basePath={`/family/people/${personId}/transactions`} readOnly pollMs={pollMs} />
+        : <SummaryView summaryPath={`/family/people/${personId}/summary`} trendPath={`/family/people/${personId}/trend`} readOnly pollMs={pollMs} />}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { ChevronRight, Copy, Share2 } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { EntryVisibility, FamilyComments, ShareNewEntries } from '@/components/family/Sharing';
 import { TransactionDetail } from '@/components/finance/TransactionDetail';
 import { TransactionRow } from '@/components/finance/TransactionRow';
 import { Avatar } from '@/components/ui/Avatar';
@@ -8,6 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardTitle } from '@/components/ui/Card';
 import { Field } from '@/components/ui/Field';
 import { PageTitle } from '@/components/ui/PageTitle';
+import { Select } from '@/components/ui/Select';
 import { Sheet } from '@/components/ui/Sheet';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useToast } from '@/components/ui/Toast';
@@ -15,11 +17,14 @@ import { useData } from '@/contexts/DataContext';
 import { useFetch, usePoll } from '@/hooks';
 import { api, ApiError } from '@/lib/api';
 import { currentMonth } from '@/lib/dates';
+import { directionText, relationOptions, type Relation } from '@/lib/relations';
 import { formatPaise } from '@/lib/utils';
 import type { FamilyOverview, Transaction } from '@/types';
 
-type Role = 'parent' | 'child';
+/** Someone's code, looked up: who made it. */
+interface CodePerson { id: string; name: string; avatarUrl: string | null; gender: string }
 
+/** Everything about family lives here: who you follow, who can see you, what you share, and connecting. */
 export function FamilyPage() {
   const { family, reloadFamily, bump, version, live } = useData();
   const toast = useToast();
@@ -28,30 +33,46 @@ export function FamilyPage() {
   const [code, setCode] = useState('');
   const [codeError, setCodeError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [found, setFound] = useState<CodePerson | null>(null);
+  const [relation, setRelation] = useState<Relation | ''>('');
+  const [connectError, setConnectError] = useState('');
   const [confirmUnlink, setConfirmUnlink] = useState<string | null>(null);
   const [confirmAll, setConfirmAll] = useState<'shared' | 'private' | null>(null);
   const [selected, setSelected] = useState<Transaction | null>(null);
   const tick = usePoll(live ? 90_000 : 15_000);
-  const ov = useFetch<FamilyOverview>(family.children.length > 0 ? `/family/overview?month=${currentMonth()}` : null, [tick, version, family.children.length]);
+  const ov = useFetch<FamilyOverview>(family.following.length > 0 ? `/family/overview?month=${currentMonth()}` : null, [tick, version, family.following.length]);
 
-  async function makeInvite(role: Role) {
-    try { setInvite(await api('/family/invites', { method: 'POST', json: { role } })); }
+  async function makeInvite() {
+    try { setInvite(await api('/family/invites', { method: 'POST', json: {} })); }
     catch { toast('Couldn’t make a code. Please try again.'); }
   }
 
-  async function join(e: FormEvent) {
+  /** Step 1 of connecting: look the code up, so the person can see who it belongs to. */
+  async function lookUp(e: FormEvent) {
     e.preventDefault();
     if (busy || !code.trim()) return;
     setBusy(true); setCodeError('');
     try {
-      await api('/family/invites/accept', { method: 'POST', json: { code } });
-      setCode(''); await reloadFamily(); toast('Connected');
-    } catch (err) { setCodeError(err instanceof ApiError ? err.message : 'Couldn’t connect. Please try again.'); }
+      const r = await api<{ person: CodePerson }>(`/family/invites/${encodeURIComponent(code.trim())}`);
+      setFound(r.person); setRelation(''); setConnectError('');
+    } catch (err) { setCodeError(err instanceof ApiError ? err.message : 'Couldn’t check that code. Please try again.'); }
     finally { setBusy(false); }
   }
 
-  async function unlink(linkId: string) {
-    try { await api(`/family/links/${linkId}`, { method: 'DELETE' }); setConfirmUnlink(null); await reloadFamily(); toast('Sharing stopped'); }
+  /** Step 2: say how you are related, and connect. */
+  async function connect() {
+    if (busy || !found || !relation) return;
+    setBusy(true); setConnectError('');
+    try {
+      const r = await api<{ relation: string }>('/family/invites/accept', { method: 'POST', json: { code, relation } });
+      setFound(null); setCode(''); await reloadFamily(); bump();
+      toast(`Connected. ${found.name.split(' ')[0]} is your ${r.relation}`);
+    } catch (err) { setConnectError(err instanceof ApiError ? err.message : 'Couldn’t connect. Please try again.'); }
+    finally { setBusy(false); }
+  }
+
+  async function unlink(linkId: string, message: string) {
+    try { await api(`/family/links/${linkId}`, { method: 'DELETE' }); setConfirmUnlink(null); await reloadFamily(); toast(message); }
     catch { toast('Couldn’t do that. Please try again.'); }
   }
 
@@ -62,23 +83,27 @@ export function FamilyPage() {
     } catch { toast('Couldn’t do that. Please try again.'); }
   }
 
-  const names = family.parents.map((p) => p.user.name).join(' & ');
+  const names = family.sharingWith.map((p) => p.user.name).join(' & ');
+  const foundFirst = found?.name.split(' ')[0] ?? '';
 
   return (
     <div className="space-y-4">
-      <PageTitle sub="Share your spending with a parent, or follow someone else’s.">Family</PageTitle>
+      <PageTitle sub="Connect with your family. Share your spending, or follow theirs.">Family</PageTitle>
 
-      {family.children.length > 0 && (
+      {family.following.length > 0 && (
         <div className="space-y-3">
           <CardTitle>People you follow</CardTitle>
-          {family.children.map((link) => {
-            const c = ov.data?.children.find((x) => x.linkId === link.linkId);
+          {family.following.map((link) => {
+            const c = ov.data?.people.find((x) => x.linkId === link.linkId);
             const first = link.user.name.split(' ')[0];
             return (
               <Card key={link.linkId} className="space-y-3 overflow-hidden">
                 <button type="button" onClick={() => nav(`/family/${link.user.id}`)} className="flex min-h-14 w-full items-center gap-3 text-left">
                   <Avatar name={link.user.name} src={link.user.avatarUrl} size={48} />
-                  <span className="flex-1 truncate text-[19px] font-bold tracking-[-0.02em]">{link.user.name}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[19px] font-bold tracking-[-0.02em]">{link.user.name}</span>
+                    <span className="block text-[14px] font-semibold text-accent">{link.relation}</span>
+                  </span>
                   <ChevronRight size={22} className="text-muted" aria-hidden />
                 </button>
 
@@ -101,7 +126,7 @@ export function FamilyPage() {
                 <div className="flex items-center justify-between border-t border-line pt-1">
                   <Button variant="link" onClick={() => nav(`/family/${link.user.id}`)}>See all entries</Button>
                   {confirmUnlink === link.linkId
-                    ? <span className="flex gap-2"><Button variant="danger" onClick={() => unlink(link.linkId)}>Yes, stop</Button><Button variant="secondary" onClick={() => setConfirmUnlink(null)}>Cancel</Button></span>
+                    ? <span className="flex gap-2"><Button variant="danger" onClick={() => unlink(link.linkId, 'Stopped following')}>Yes, stop</Button><Button variant="secondary" onClick={() => setConfirmUnlink(null)}>Cancel</Button></span>
                     : <Button variant="link" onClick={() => setConfirmUnlink(link.linkId)} className="text-muted">Stop following</Button>}
                 </div>
               </Card>
@@ -110,18 +135,24 @@ export function FamilyPage() {
         </div>
       )}
 
-      {family.parents.length > 0 && (
+      {family.sharingWith.length > 0 && (
         <Card className="space-y-3">
           <CardTitle>Who can see your entries</CardTitle>
-          {family.parents.map((p) => (
+          {family.sharingWith.map((p) => (
             <div key={p.linkId} className="flex flex-wrap items-center justify-between gap-2">
-              <span className="text-[18px] font-semibold">{p.user.name}</span>
+              <span className="flex min-w-0 items-center gap-3">
+                <Avatar name={p.user.name} src={p.user.avatarUrl} size={40} />
+                <span className="min-w-0">
+                  <span className="block truncate text-[17px] font-semibold">{p.user.name}</span>
+                  <span className="block text-[13px] font-semibold text-accent">{p.relation}</span>
+                </span>
+              </span>
               {confirmUnlink === p.linkId
-                ? <span className="flex gap-2"><Button variant="danger" onClick={() => unlink(p.linkId)}>Yes, stop</Button><Button variant="secondary" onClick={() => setConfirmUnlink(null)}>Cancel</Button></span>
+                ? <span className="flex gap-2"><Button variant="danger" onClick={() => unlink(p.linkId, 'Sharing stopped')}>Yes, stop</Button><Button variant="secondary" onClick={() => setConfirmUnlink(null)}>Cancel</Button></span>
                 : <Button variant="link" onClick={() => setConfirmUnlink(p.linkId)}>Stop sharing</Button>}
             </div>
           ))}
-          <p className="text-muted">{names} can only <strong>view</strong> entries you choose to show them. They can’t change anything. You pick this on each entry.</p>
+          <p className="text-muted">{names} can only <strong>view</strong> entries you choose to show them. They can’t change anything. You choose below what they see.</p>
           {confirmAll ? (
             <div className="rounded-xl bg-surface-2 p-3">
               <p className="mb-2 font-medium">{confirmAll === 'shared' ? `Show all your past entries to ${names}?` : `Hide all your past entries from ${names}?`}</p>
@@ -136,16 +167,21 @@ export function FamilyPage() {
         </Card>
       )}
 
+      {family.sharingWith.length > 0 && (
+        <>
+          <ShareNewEntries />
+          <EntryVisibility />
+          <FamilyComments />
+        </>
+      )}
+
       <Card className="space-y-3">
-        <CardTitle>Connect with someone</CardTitle>
-        <p className="text-muted">Make a code and give it to them, or type in a code they gave you.</p>
-        <div className="grid gap-2">
-          <Button onClick={() => makeInvite('child')}>I’m a child: invite my parent</Button>
-          <Button variant="secondary" onClick={() => makeInvite('parent')}>I’m a parent: invite my child</Button>
-        </div>
-        <form onSubmit={join} className="space-y-2 border-t border-line pt-3" noValidate>
-          <Field label="I have a code" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} error={codeError} autoCapitalize="characters" maxLength={12} />
-          <Button type="submit" block variant="secondary" disabled={busy || !code.trim()}>Connect</Button>
+        <CardTitle>Connect with a family member</CardTitle>
+        <p className="text-muted">Make a code and give it to them, or type in a code they gave you. You’ll choose how you’re related.</p>
+        <Button onClick={makeInvite}>Make a code</Button>
+        <form onSubmit={lookUp} className="space-y-2 border-t border-line pt-3" noValidate>
+          <Field label="I have a code" value={code} onChange={(e) => { setCode(e.target.value.toUpperCase()); setCodeError(''); }} error={codeError} autoCapitalize="characters" maxLength={12} />
+          <Button type="submit" block variant="secondary" disabled={busy || !code.trim()}>Continue</Button>
         </form>
       </Card>
 
@@ -153,6 +189,24 @@ export function FamilyPage() {
 
       <Sheet open={!!invite} onClose={() => setInvite(null)} title="Your code">
         {invite && <InviteCode code={invite.code} expiresAt={invite.expiresAt} />}
+      </Sheet>
+
+      <Sheet open={!!found} onClose={() => setFound(null)} title="Connect">
+        {found && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <Avatar name={found.name} src={found.avatarUrl} size={56} />
+              <div className="min-w-0">
+                <p className="truncate text-[20px] font-bold tracking-[-0.02em]">{found.name}</p>
+                <p className="text-muted">made this code</p>
+              </div>
+            </div>
+            <Select label={`${foundFirst} is my…`} value={relation} onChange={(v) => setRelation(v as Relation)} options={relationOptions(found.gender)} placeholder="Choose how you are related" />
+            {relation && <p className="rounded-2xl bg-surface-2 px-4 py-3 text-[15px] leading-snug">{directionText(relation, foundFirst)}</p>}
+            {connectError && <p role="alert" className="font-medium text-neg">{connectError}</p>}
+            <Button block disabled={!relation || busy} onClick={connect}>{busy ? 'Connecting…' : 'Connect'}</Button>
+          </div>
+        )}
       </Sheet>
     </div>
   );
@@ -165,7 +219,7 @@ function InviteCode({ code, expiresAt }: { code: string; expiresAt: string }) {
   return (
     <div className="space-y-4 text-center">
       <p className="rounded-2xl bg-surface-2 py-5 text-[40px] font-bold tracking-[0.25em]" aria-label={`Code ${code.split('').join(' ')}`}>{code}</p>
-      <p className="text-muted">Tell them to open SpendMate, tap <strong>Family</strong>, and type this code. It works once and expires in {days} days.</p>
+      <p className="text-muted">Tell them to open SpendMate, tap <strong>Family</strong>, and type this code. They’ll choose how they’re related to you. It works once and expires in {days} days.</p>
       <div className="grid gap-2">
         <Button onClick={async () => { try { await navigator.clipboard.writeText(text); toast('Copied'); } catch { toast('Couldn’t copy. Please read the code out instead.'); } }}><Copy size={20} aria-hidden />Copy message</Button>
         {typeof navigator.share === 'function' && <Button variant="secondary" onClick={() => navigator.share({ text }).catch(() => {})}><Share2 size={20} aria-hidden />Send…</Button>}

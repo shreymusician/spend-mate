@@ -43,7 +43,6 @@ export function TransactionDetail({ t, onClose, readOnly }: Props) {
     ['Date', when(shown.occurredAt)],
     ...(shown.merchant ? [['Shop or person', shown.merchant] as [string, string]] : []),
     ...(shown.tags.length ? [['Tags', shown.tags.join(', ')] as [string, string]] : []),
-    ...(!readOnly ? [['Who can see it', shown.visibility === 'shared' ? 'You and your family' : 'Only you'] as [string, string]] : []),
   ];
 
   return (
@@ -62,7 +61,8 @@ export function TransactionDetail({ t, onClose, readOnly }: Props) {
           ))}
         </dl>
 
-        {(readOnly || shown.visibility === 'shared') && <Comments txId={shown.id} canWrite={!!readOnly} />}
+        {/* Comments are a family matter: parents write them here; you read them in the Family tab. */}
+        {readOnly && <Comments txId={shown.id} canWrite />}
 
         {!readOnly && (
           <div className="mt-5 grid grid-cols-2 gap-3">

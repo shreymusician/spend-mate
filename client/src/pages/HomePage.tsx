@@ -6,13 +6,11 @@ import { TransactionDetail } from '@/components/finance/TransactionDetail';
 import { TransactionRow } from '@/components/finance/TransactionRow';
 import { TransactionSheet } from '@/components/finance/TransactionSheet';
 import { Amount } from '@/components/ui/Amount';
-import { BrandLoader } from '@/components/ui/BrandLoader';
 import { Button } from '@/components/ui/Button';
 import { HomeHeader } from '@/components/ui/HomeHeader';
 import { Card, CardTitle } from '@/components/ui/Card';
 import { CountUp } from '@/components/ui/CountUp';
 import { Ring } from '@/components/ui/Ring';
-import { ParentHome } from '@/pages/ParentHome';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useData } from '@/contexts/DataContext';
 import { useFetch } from '@/hooks';
@@ -23,15 +21,9 @@ import type { Summary, Transaction } from '@/types';
 
 const spring = { type: 'spring' as const, stiffness: 260, damping: 26 };
 
-/** Someone who follows children gets the family dashboard; everyone else gets their own money. */
+/** Home is the same for everyone: your own money. Anything to do with family lives in the Family tab. */
 export function HomePage() {
-  const { family, familyLoaded } = useData();
-  if (!familyLoaded) return <BrandLoader size="inline" className="pt-24" />;
-  return family.children.length > 0 ? <ParentHome /> : <StudentHome />;
-}
-
-function StudentHome() {
-  const { family, version } = useData();
+  const { version } = useData();
   const nav = useNavigate();
   const summary = useFetch<Summary>(`/analytics/summary?month=${currentMonth()}`, [version]);
   const recent = useFetch<{ transactions: Transaction[] }>('/transactions?limit=5', [version]);
@@ -113,10 +105,6 @@ function StudentHome() {
           {recent.data?.transactions.map((t, i) => <TransactionRow key={t.id} t={t} index={i} onClick={() => setSelected(t)} />)}
         </Card>
       </div>
-
-      {family.parents.length > 0 && (
-        <p className="text-center text-[14px] text-muted">{family.parents.map((p) => p.user.name).join(' & ')} can see the entries you share.</p>
-      )}
 
       <TransactionSheet open={add !== null} kind={add ?? 'expense'} onClose={() => setAdd(null)} />
       <TransactionDetail t={selected} onClose={() => setSelected(null)} />

@@ -56,8 +56,8 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const quiet = () => sleep(250);
 const tx = (auth: string, body: object) => request(app).post('/api/transactions').set('Authorization', auth).send({ type: 'expense', category: 'food', amountPaise: 1000, title: 't', ...body });
 const link = async (child: string, parent: string) => {
-  const inv = await request(app).post('/api/family/invites').set('Authorization', child).send({ role: 'child' });
-  await request(app).post('/api/family/invites/accept').set('Authorization', parent).send({ code: inv.body.code });
+  const inv = await request(app).post('/api/family/invites').set('Authorization', child).send({});
+  await request(app).post('/api/family/invites/accept').set('Authorization', parent).send({ code: inv.body.code, relation: 'child' });
 };
 
 describe('live connection', () => {
@@ -119,7 +119,7 @@ describe('who is told what', () => {
     expect(k.got.at(-1)?.topics).toContain('family');
     expect(m.got.at(-1)?.topics).toContain('family');
     k.got.length = 0; m.got.length = 0;
-    const links = (await request(app).get('/api/family').set('Authorization', kid.auth)).body.parents as { linkId: string }[];
+    const links = (await request(app).get('/api/family').set('Authorization', kid.auth)).body.sharingWith as { linkId: string }[];
     await request(app).delete(`/api/family/links/${links[0]!.linkId}`).set('Authorization', kid.auth); await quiet();
     expect(k.got.at(-1)?.topics).toContain('family');
     expect(m.got.at(-1)?.topics).toContain('family');
@@ -139,7 +139,7 @@ describe('who is told what', () => {
   it('stops following people once their link is gone', async () => {
     const kid = await signup('kid4'); const dad = await signup('dad4');
     await link(kid.auth, dad.auth);
-    const links = (await request(app).get('/api/family').set('Authorization', kid.auth)).body.parents as { linkId: string }[];
+    const links = (await request(app).get('/api/family').set('Authorization', kid.auth)).body.sharingWith as { linkId: string }[];
     await request(app).delete(`/api/family/links/${links[0]!.linkId}`).set('Authorization', kid.auth);
     const d = await listen(dad.token); await d.ready(); d.got.length = 0;
     await tx(kid.auth, { visibility: 'shared' }); await quiet();

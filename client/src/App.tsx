@@ -10,10 +10,10 @@ import { DataProvider } from '@/contexts/DataContext';
 import { useTheme } from '@/contexts/useTheme';
 import { getGuestTheme, setGuestTheme, type ThemePref } from '@/lib/theme';
 import { AuthPage } from '@/pages/AuthPage';
-import { ChildPage } from '@/pages/ChildPage';
 import { FamilyPage } from '@/pages/FamilyPage';
 import { HistoryPage } from '@/pages/HistoryPage';
 import { HomePage } from '@/pages/HomePage';
+import { PersonPage } from '@/pages/PersonPage';
 import { ProfilePage } from '@/pages/ProfilePage';
 
 export default function App() {
@@ -49,7 +49,7 @@ export default function App() {
               <Route index element={<HomePage />} />
               <Route path="history" element={<HistoryPage />} />
               <Route path="family" element={<FamilyPage />} />
-              <Route path="family/:childId" element={<ChildPage />} />
+              <Route path="family/:personId" element={<PersonPage />} />
               <Route path="profile" element={<ProfilePage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Route>

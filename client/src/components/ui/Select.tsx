@@ -11,6 +11,8 @@ interface Props {
   value: string;
   onChange: (value: string) => void;
   options: Option[];
+  /** Shown (greyed) while nothing is chosen yet. */
+  placeholder?: string;
   className?: string;
 }
 
@@ -18,7 +20,7 @@ interface Props {
  * Our own drop-down, not the phone's built-in one: a rounded list that slides up from the bottom with a tick
  * on the chosen row. Tap outside, press Esc, or pick a row to close it.
  */
-export function Select({ label, value, onChange, options, className }: Props) {
+export function Select({ label, value, onChange, options, placeholder, className }: Props) {
   const id = useId();
   const [open, setOpen] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
@@ -45,7 +47,7 @@ export function Select({ label, value, onChange, options, className }: Props) {
         onClick={() => setOpen(true)}
         className={cn('relative flex h-[54px] w-full items-center rounded-[16px] bg-surface px-4 pr-10 text-left text-[17px] text-fg shadow-[var(--sm-shadow)] outline-none ring-2 ring-transparent transition-[transform,box-shadow] active:scale-[0.99] focus-visible:ring-accent/60 dark:bg-surface-2', className)}
       >
-        <span id={`${id}-v`} className="truncate">{current?.label ?? ''}</span>
+        <span id={`${id}-v`} className={cn('truncate', !current && 'text-muted')}>{current?.label ?? placeholder ?? ''}</span>
         <ChevronsUpDown size={18} aria-hidden className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-muted" />
       </button>
 

@@ -38,7 +38,7 @@ function queryOf(f: Filters, before?: string) {
 }
 
 interface Props {
-  /** '/transactions' for your own entries, or `/family/children/<id>/transactions` for a parent's read-only view. */
+  /** '/transactions' for your own entries, or `/family/people/<id>/transactions` for someone you follow (read-only). */
   basePath: string;
   readOnly?: boolean;
   /** Re-fetch every N ms (a parent's screen stays current without a manual refresh). */

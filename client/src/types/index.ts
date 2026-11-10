@@ -55,22 +55,22 @@ export interface Summary {
 
 export interface TrendPoint { month: string; incomePaise: number; expensePaise: number }
 
-export interface FamilyLink { linkId: string; user: { id: string; name: string; avatarUrl: string | null } }
-export interface FamilyLinks { parents: FamilyLink[]; children: FamilyLink[] }
+/** A connection. `relation` is what that person is to you: Father, Sister, Husband... */
+export interface FamilyLink { linkId: string; relation: string; user: { id: string; name: string; avatarUrl: string | null } }
+/** `sharingWith`: people who can see what you share. `following`: people whose shared entries you can see. */
+export interface FamilyLinks { sharingWith: FamilyLink[]; following: FamilyLink[] }
+
+/** A note a family member wrote on a shared entry. */
 export interface Comment { id: string; body: string; at: string; author: string; mine: boolean }
 
-/** A parent's view of one child: shared entries only. */
-export interface ChildOverview {
+/** Someone you follow, with this month's totals from the entries they share. */
+export interface PersonOverview {
   linkId: string;
+  relation: string;
   user: { id: string; name: string; avatarUrl: string | null };
   incomePaise: number;
   expensePaise: number;
   balancePaise: number;
   latest: Transaction[];
 }
-export interface FamilyOverview {
-  month: string;
-  children: ChildOverview[];
-  totals: { incomePaise: number; expensePaise: number };
-  feed: (Transaction & { child: { id: string; name: string; avatarUrl: string | null } })[];
-}
+export interface FamilyOverview { month: string; people: PersonOverview[] }

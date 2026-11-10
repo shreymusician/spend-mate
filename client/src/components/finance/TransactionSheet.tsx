@@ -36,7 +36,7 @@ export function TransactionSheet({ open, onClose, kind = 'expense', editing }: P
   const { user } = useAuth();
   const toast = useToast();
   // New entries follow the "share new entries" choice made in the Family tab (and only matter once a parent is linked).
-  const shareByDefault = family.parents.length > 0 && user?.prefs.shareNewEntries !== false;
+  const shareByDefault = family.sharingWith.length > 0 && user?.prefs.shareNewEntries !== false;
 
   const blank = () => ({
     amount: '', title: '', reason: '', category: 'food', source: 'pocket_money' as IncomeSource,

@@ -32,6 +32,9 @@ export const registerSchema = z.object({
 
 export const loginSchema = z.object({ mobile, pin, remember: z.boolean().default(true) });
 
+/** Used by the sign-in and sign-up screens to ask "is there already an account with this number?" */
+export const checkMobileSchema = z.object({ mobile });
+
 // dob stays a plain YYYY-MM-DD string so the comparison is exact (no time-zone shifts).
 export const resetPinSchema = z.object({
   mobile,

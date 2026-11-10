@@ -10,6 +10,7 @@ import { monthlySummary, trend } from '../analytics/analytics.js';
 import { listTransactions } from '../transactions/transactions.service.js';
 import { listQuerySchema } from '../transactions/transactions.validators.js';
 import * as fam from './family.service.js';
+import { RELATIONS } from './relations.js';
 
 export const familyRouter = Router();
 familyRouter.use(requireAuth);
@@ -24,12 +25,17 @@ familyRouter.get('/', asyncHandler(async (req, res) => {
   res.json(await fam.listLinks(req.userId!));
 }));
 
-familyRouter.post('/invites', validateBody(z.object({ role: z.enum(['parent', 'child']) })), asyncHandler(async (req, res) => {
-  res.status(201).json(await fam.createInvite(req.userId!, req.body.role));
+familyRouter.post('/invites', asyncHandler(async (req, res) => {
+  res.status(201).json(await fam.createInvite(req.userId!));
 }));
 
-familyRouter.post('/invites/accept', acceptLimiter, validateBody(z.object({ code: z.string().trim().min(4).max(12) })), asyncHandler(async (req, res) => {
-  res.status(201).json(await fam.acceptInvite(req.userId!, req.body.code));
+// Who made this code? (Shown before connecting, so the person can choose how they are related.)
+familyRouter.get('/invites/:code', acceptLimiter, asyncHandler(async (req, res) => {
+  res.json(await fam.previewInvite(req.userId!, String(req.params.code)));
+}));
+
+familyRouter.post('/invites/accept', acceptLimiter, validateBody(z.object({ code: z.string().trim().min(4).max(12), relation: z.enum(RELATIONS).optional() })), asyncHandler(async (req, res) => {
+  res.status(201).json(await fam.acceptInvite(req.userId!, req.body.code, req.body.relation));
 }));
 
 familyRouter.delete('/links/:id', asyncHandler(async (req, res) => {
@@ -41,7 +47,7 @@ familyRouter.post('/sharing', validateBody(z.object({ visibility: z.enum(['share
   res.json(await fam.setAllVisibility(req.userId!, req.body.visibility));
 }));
 
-// ---- Parent's read-only view of a linked child (shared entries only) ----
+// ---- Read-only view of someone you are allowed to follow (their shared entries only) ----
 
 familyRouter.get('/comments', asyncHandler(async (req, res) => {
   res.json({ comments: await fam.commentsOnMine(req.userId!) });
@@ -52,27 +58,27 @@ familyRouter.get('/overview', asyncHandler(async (req, res) => {
   res.json(await fam.familyOverview(req.userId!, month));
 }));
 
-familyRouter.get('/children/:childId/summary', asyncHandler(async (req, res) => {
-  const childId = String(req.params.childId);
-  await fam.assertParentOf(req.userId!, childId);
+familyRouter.get('/people/:personId/summary', asyncHandler(async (req, res) => {
+  const personId = String(req.params.personId);
+  await fam.assertViewerOf(req.userId!, personId);
   const month = z.string().regex(MONTH_RE).default(() => currentMonth()).parse(req.query.month);
-  res.json(await monthlySummary(childId, month, new Date(), { sharedOnly: true }));
+  res.json(await monthlySummary(personId, month, new Date(), { sharedOnly: true }));
 }));
 
-familyRouter.get('/children/:childId/trend', asyncHandler(async (req, res) => {
-  const childId = String(req.params.childId);
-  await fam.assertParentOf(req.userId!, childId);
+familyRouter.get('/people/:personId/trend', asyncHandler(async (req, res) => {
+  const personId = String(req.params.personId);
+  await fam.assertViewerOf(req.userId!, personId);
   const months = z.coerce.number().int().min(2).max(24).default(6).parse(req.query.months);
-  res.json({ trend: await trend(childId, currentMonth(), months, { sharedOnly: true }) });
+  res.json({ trend: await trend(personId, currentMonth(), months, { sharedOnly: true }) });
 }));
 
-familyRouter.get('/children/:childId/transactions', asyncHandler(async (req, res) => {
-  const childId = String(req.params.childId);
-  await fam.assertParentOf(req.userId!, childId);
-  res.json(await listTransactions(childId, listQuerySchema.parse(req.query), { sharedOnly: true }));
+familyRouter.get('/people/:personId/transactions', asyncHandler(async (req, res) => {
+  const personId = String(req.params.personId);
+  await fam.assertViewerOf(req.userId!, personId);
+  res.json(await listTransactions(personId, listQuerySchema.parse(req.query), { sharedOnly: true }));
 }));
 
-// ---- Comments: parent writes, both can read (on shared entries) ----
+// ---- Comments: a family member who can view writes, both can read (on shared entries) ----
 
 familyRouter.get('/transactions/:txId/comments', asyncHandler(async (req, res) => {
   res.json({ comments: await fam.listComments(req.userId!, String(req.params.txId)) });

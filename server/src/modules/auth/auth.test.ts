@@ -268,3 +268,28 @@ describe('photo at sign-up', () => {
     }
   });
 });
+
+describe('is there an account with this number?', () => {
+  const check = (mobile: unknown) => request(app).post('/api/auth/check-mobile').send({ mobile });
+
+  it('says yes for a registered number and no for an unknown one', async () => {
+    await request(app).post('/api/auth/register').send({ ...user, mobile: '9611111301' });
+    expect((await check('9611111301')).body).toEqual({ exists: true });
+    expect((await check('9611111399')).body).toEqual({ exists: false });
+  });
+
+  it('understands the same number written different ways', async () => {
+    expect((await check('+91 96111 11301')).body).toEqual({ exists: true });
+    expect((await check('096111-11301')).body).toEqual({ exists: true });
+  });
+
+  it('rejects things that are not a mobile number, and never signs anyone in', async () => {
+    expect((await check('12345')).status).toBe(400);
+    expect((await check('')).status).toBe(400);
+    expect((await check(undefined)).status).toBe(400);
+    const ok = await check('9611111301');
+    expect(ok.headers['set-cookie']).toBeUndefined();
+    expect(JSON.stringify(ok.body)).not.toMatch(/token|pin|name/i);
+  });
+});
+

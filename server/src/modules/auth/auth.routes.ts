@@ -4,7 +4,7 @@ import { env, isProd } from '../../config/env.js';
 import { validateBody } from '../../middleware/validate.js';
 import { asyncHandler, forbidden } from '../../utils/errors.js';
 import * as auth from './auth.service.js';
-import { loginSchema, registerSchema, resetPinSchema } from './auth.validators.js';
+import { checkMobileSchema, loginSchema, registerSchema, resetPinSchema } from './auth.validators.js';
 
 const COOKIE = 'pv_refresh';
 const CSRF_HEADER = 'x-requested-with';
@@ -16,6 +16,16 @@ const limiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: { code: 'rate_limited', message: 'Too many attempts. Take a breath and try again soon.' } },
+});
+
+// Telling the app whether a number has an account makes it possible to try numbers one after another, so this is
+// held to a stricter limit than the rest.
+const checkLimiter = rateLimit({
+  windowMs: 15 * 60_000,
+  limit: env.NODE_ENV === 'test' ? 10_000 : 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: { code: 'rate_limited', message: 'Too many checks. Please wait a few minutes and try again.' } },
 });
 
 const cookieOpts = {
@@ -36,6 +46,10 @@ authRouter.use(limiter);
 
 authRouter.post('/register', validateBody(registerSchema), asyncHandler(async (req, res) => {
   sendSession(res, await auth.register(req.body, req.get('user-agent')), 201);
+}));
+
+authRouter.post('/check-mobile', checkLimiter, validateBody(checkMobileSchema), asyncHandler(async (req, res) => {
+  res.json({ exists: await auth.mobileExists(req.body.mobile) });
 }));
 
 authRouter.post('/login', validateBody(loginSchema), asyncHandler(async (req, res) => {

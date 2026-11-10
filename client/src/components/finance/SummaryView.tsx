@@ -16,10 +16,10 @@ import { budgetLine, monthInsights } from '@/lib/insights';
 import type { Summary, TrendPoint } from '@/types';
 
 interface Props {
-  /** e.g. '/analytics/summary' or `/family/children/<id>/summary` */
+  /** e.g. '/analytics/summary' or `/family/people/<id>/summary` */
   summaryPath: string;
   trendPath: string;
-  /** Parents see no budgets and can't edit anything. */
+  /** People you follow show no budgets and can't edit anything. */
   readOnly?: boolean;
   pollMs?: number;
 }

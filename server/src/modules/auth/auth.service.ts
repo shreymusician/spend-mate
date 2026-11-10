@@ -85,6 +85,11 @@ async function recordFailure(userId: unknown) {
   }
 }
 
+/** Whether an account exists for this (already validated) mobile number. */
+export async function mobileExists(mobile: string): Promise<boolean> {
+  return !!(await User.exists({ mobile }));
+}
+
 export async function login(input: { mobile: string; pin: string; remember?: boolean }, ua?: string) {
   const user = await User.findOne({ mobile: input.mobile }).select('+pinHash +failedPinAttempts +lockedUntil');
   assertNotLocked(user);

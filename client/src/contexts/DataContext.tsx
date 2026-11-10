@@ -5,7 +5,7 @@ import type { Category, FamilyLinks } from '@/types';
 
 interface DataState {
   categories: Category[];
-  /** People linked to me as parents / as children. */
+  /** Who can see what I share, and whose shared entries I can see. */
   family: FamilyLinks;
   familyLoaded: boolean;
   /** Bumps whenever transactions/budgets change so screens refetch. */
@@ -20,7 +20,7 @@ const Ctx = createContext<DataState | null>(null);
 
 export function DataProvider({ children }: { children: ReactNode }) {
   const [categories, setCategories] = useState<Category[]>([]);
-  const [family, setFamily] = useState<FamilyLinks>({ parents: [], children: [] });
+  const [family, setFamily] = useState<FamilyLinks>({ sharingWith: [], following: [] });
   const [familyLoaded, setFamilyLoaded] = useState(false);
   const [version, setVersion] = useState(0);
   const [live, setLive] = useState(false);

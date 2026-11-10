@@ -1,13 +1,13 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { Camera, Check, ChevronLeft, UserRound } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { Field } from '@/components/ui/Field';
 import { PinPad } from '@/components/ui/PinPad';
 import { Switch } from '@/components/ui/Switch';
 import { useAuth } from '@/contexts/AuthContext';
-import { api, ApiError } from '@/lib/api';
+import { api, ApiError, authPost } from '@/lib/api';
 import { photoToAvatar } from '@/lib/image';
 import { getGuestTheme } from '@/lib/theme';
 import { cn } from '@/lib/utils';
@@ -108,6 +108,12 @@ function Screen({ onBack, progress, title, sub, children, footer }: { onBack: ()
   );
 }
 
+/** Asks the server whether a number already has an account. Returns null if it could not be checked (offline). */
+async function numberHasAccount(mobile: string): Promise<boolean | null> {
+  try { return (await authPost<{ exists: boolean }>('/check-mobile', { mobile: tenDigits(mobile) })).exists; }
+  catch { return null; }
+}
+
 function MobileField({ value, onChange, error }: { value: string; onChange: (v: string) => void; error?: string }) {
   return (
     <Field
@@ -138,9 +144,15 @@ function LoginFlow({ onBack, onSwitch, onForgot, initialMobile = '', notice }: {
 
   const go = (s: number) => { setDir(s > step ? 1 : -1); setStep(s); };
 
-  function next(e: FormEvent) {
+  async function next(e: FormEvent) {
     e.preventDefault();
+    if (busy) return;
     if (!validMobile(mobile)) return setMobileError('Enter your 10-digit mobile number');
+    setBusy(true);
+    const exists = await numberHasAccount(mobile);
+    setBusy(false);
+    if (exists === false) return setMobileError('No account found with this number. Check it, or create a new account below.');
+    // (If the check could not be made, carry on: the Secret Pin step reports a wrong number anyway.)
     setMobileError(''); go(1);
   }
 
@@ -161,7 +173,7 @@ function LoginFlow({ onBack, onSwitch, onForgot, initialMobile = '', notice }: {
         {step === 0 ? (
           <form onSubmit={next} className="h-full" noValidate>
             <Screen onBack={onBack} title="Welcome back" sub="Enter your mobile number to sign in."
-              footer={<div className="space-y-1"><Button type="submit" block>Continue</Button><Button type="button" variant="link" block onClick={onSwitch}>Create a new account</Button></div>}>
+              footer={<div className="space-y-1"><Button type="submit" block disabled={busy}>{busy ? 'Checking…' : 'Continue'}</Button><Button type="button" variant="link" block onClick={onSwitch}>Create a new account</Button></div>}>
               <MobileField value={mobile} onChange={(v) => { setMobile(v); setMobileError(''); }} error={mobileError} />
               <div className="mt-5">
                 <Switch label="Remember me" checked={remember} onChange={setRemember} />
@@ -224,12 +236,19 @@ function RegisterFlow({ onBack, onSwitch }: { onBack: () => void; onSwitch: () =
     if (!Object.keys(er).length) go(1);
   }
 
-  function step1(e: FormEvent) {
+  async function step1(e: FormEvent) {
     e.preventDefault();
+    if (busy) return;
     const er: Errors = {};
     if (!f.dob) er.dob = 'Please enter your date of birth';
     else if (f.dob > todayRef.current) er.dob = 'Date of birth cannot be in the future';
     if (!validMobile(f.mobile)) er.mobile = 'Enter a valid 10-digit mobile number';
+    if (!er.mobile) {
+      setBusy(true);
+      const exists = await numberHasAccount(f.mobile);
+      setBusy(false);
+      if (exists) er.mobile = 'There is already an account with this number. Try logging in.';
+    }
     setErrors(er);
     if (!Object.keys(er).length) go(2);
   }
@@ -308,7 +327,7 @@ function RegisterFlow({ onBack, onSwitch }: { onBack: () => void; onSwitch: () =
         {step === 1 && (
           <form onSubmit={step1} className="h-full" noValidate>
             <Screen onBack={() => go(0)} progress={progress} title="A few more details"
-              footer={<Button type="submit" block>Continue</Button>}>
+              footer={<div className="space-y-1"><Button type="submit" block disabled={busy}>{busy ? 'Checking…' : 'Continue'}</Button>{errors.mobile?.includes('already') && <Button type="button" variant="link" block onClick={onSwitch}>Log in instead</Button>}</div>}>
               <div className="space-y-5">
                 <Field label="Date of birth" type="date" autoComplete="bday" max={todayRef.current} value={f.dob} onChange={(e) => set('dob', e.target.value)} error={errors.dob} />
                 <MobileField value={f.mobile} onChange={(v) => set('mobile', v)} error={errors.mobile} />

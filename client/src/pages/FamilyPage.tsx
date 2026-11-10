@@ -1,7 +1,7 @@
 import { ChevronRight, Copy, Share2 } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { EntryVisibility, FamilyComments, ShareNewEntries } from '@/components/family/Sharing';
+import { FamilyComments, ShareNewEntries } from '@/components/family/Sharing';
 import { TransactionDetail } from '@/components/finance/TransactionDetail';
 import { TransactionRow } from '@/components/finance/TransactionRow';
 import { Avatar } from '@/components/ui/Avatar';
@@ -90,6 +90,16 @@ export function FamilyPage() {
     <div className="space-y-4">
       <PageTitle sub="Connect with your family. Share your spending, or follow theirs.">Family</PageTitle>
 
+      <Card className="space-y-3">
+        <CardTitle>Connect with a family member</CardTitle>
+        <p className="text-muted">Make a code and give it to them, or type in a code they gave you. You’ll choose how you’re related.</p>
+        <Button onClick={makeInvite}>Make a code</Button>
+        <form onSubmit={lookUp} className="space-y-2 border-t border-line pt-3" noValidate>
+          <Field label="I have a code" value={code} onChange={(e) => { setCode(e.target.value.toUpperCase()); setCodeError(''); }} error={codeError} autoCapitalize="characters" maxLength={12} />
+          <Button type="submit" block variant="secondary" disabled={busy || !code.trim()}>Continue</Button>
+        </form>
+      </Card>
+
       {family.following.length > 0 && (
         <div className="space-y-3">
           <CardTitle>People you follow</CardTitle>
@@ -152,7 +162,7 @@ export function FamilyPage() {
                 : <Button variant="link" onClick={() => setConfirmUnlink(p.linkId)}>Stop sharing</Button>}
             </div>
           ))}
-          <p className="text-muted">{names} can only <strong>view</strong> entries you choose to show them. They can’t change anything. You choose below what they see.</p>
+          <p className="text-muted">{names} can only <strong>view</strong> entries you choose to show them. They can’t change anything.</p>
           {confirmAll ? (
             <div className="rounded-xl bg-surface-2 p-3">
               <p className="mb-2 font-medium">{confirmAll === 'shared' ? `Show all your past entries to ${names}?` : `Hide all your past entries from ${names}?`}</p>
@@ -170,20 +180,9 @@ export function FamilyPage() {
       {family.sharingWith.length > 0 && (
         <>
           <ShareNewEntries />
-          <EntryVisibility />
           <FamilyComments />
         </>
       )}
-
-      <Card className="space-y-3">
-        <CardTitle>Connect with a family member</CardTitle>
-        <p className="text-muted">Make a code and give it to them, or type in a code they gave you. You’ll choose how you’re related.</p>
-        <Button onClick={makeInvite}>Make a code</Button>
-        <form onSubmit={lookUp} className="space-y-2 border-t border-line pt-3" noValidate>
-          <Field label="I have a code" value={code} onChange={(e) => { setCode(e.target.value.toUpperCase()); setCodeError(''); }} error={codeError} autoCapitalize="characters" maxLength={12} />
-          <Button type="submit" block variant="secondary" disabled={busy || !code.trim()}>Continue</Button>
-        </form>
-      </Card>
 
       <TransactionDetail t={selected} onClose={() => setSelected(null)} readOnly />
 

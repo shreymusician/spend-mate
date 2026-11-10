@@ -1,8 +1,9 @@
-import { useRef, type TouchEvent } from 'react';
+import { useCallback, useRef, type TouchEvent } from 'react';
 
 const MIN_DISTANCE = 60; // how far the finger must travel sideways, in px
 const MIN_RATIO = 1.6;   // sideways travel must clearly beat up/down travel, so scrolling is never mistaken for a swipe
 const MAX_MS = 800;      // a quick flick, not a slow drag or a long press
+const CLAIM_AFTER = 12;  // once the finger has clearly moved sideways this far, the app claims the gesture from the browser
 
 /** Things a sideways swipe must leave alone: open sheets, text fields, sliders, and areas that scroll sideways. */
 function swipeIsBlocked(target: EventTarget | null, stopAt: HTMLElement): boolean {
@@ -17,12 +18,31 @@ function swipeIsBlocked(target: EventTarget | null, stopAt: HTMLElement): boolea
 
 /**
  * Swipe sideways to move between tabs. Right to left goes to the next tab, left to right to the previous one.
- * Spread the returned handlers on the element that holds the page.
+ * Spread the returned props on the element that holds the page.
  */
 export function useTabSwipe(onSwipe: (direction: 'next' | 'previous') => void, enabled = true) {
   const start = useRef<{ x: number; y: number; at: number } | null>(null);
 
+  // While a swipe is under way the browser must not also treat it as "go back" or "go forward" (some phones do that
+  // for a sideways drag), so the sideways part of the gesture is claimed here. This needs a listener that is allowed
+  // to cancel the event, which React's own touch props are not.
+  const holder = useRef<HTMLElement | null>(null);
+  const onMove = useRef((e: globalThis.TouchEvent) => {
+    const s = start.current;
+    const t = e.touches[0];
+    if (!s || !t || !e.cancelable) return;
+    const dx = t.clientX - s.x;
+    const dy = t.clientY - s.y;
+    if (Math.abs(dx) > CLAIM_AFTER && Math.abs(dx) > Math.abs(dy) * 1.2) e.preventDefault();
+  });
+  const ref = useCallback((el: HTMLElement | null) => {
+    holder.current?.removeEventListener('touchmove', onMove.current);
+    holder.current = el;
+    el?.addEventListener('touchmove', onMove.current, { passive: false });
+  }, []);
+
   return {
+    ref,
     onTouchStart(e: TouchEvent<HTMLElement>) {
       start.current = null;
       if (!enabled || e.touches.length !== 1) return; // pinch and two-finger gestures are not swipes

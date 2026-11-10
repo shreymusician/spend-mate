@@ -38,7 +38,7 @@ export function AppShell() {
     <div className="flex h-dvh w-full items-center justify-center bg-bg">
       <div className="pt-safe relative h-dvh w-full max-w-[430px] overflow-hidden bg-bg sm:h-[min(100dvh,900px)] sm:rounded-[38px] sm:shadow-[0_30px_80px_-30px_rgba(0,0,0,0.5)] sm:ring-1 sm:ring-line">
         <TopProgress />
-        <main {...swipe} className="h-full overflow-y-auto overscroll-y-contain overscroll-x-none px-4 pb-[calc(104px+env(safe-area-inset-bottom))] pt-3">
+        <main {...swipe} className="h-full touch-pan-y overflow-y-auto overscroll-y-contain overscroll-x-none px-4 pb-[calc(104px+env(safe-area-inset-bottom))] pt-3">
           {/* One copy of the page, keyed by address: it slides and fades in at once. (Holding the old page on screen while
               the new one loads made every screen load twice and left taps feeling ignored.) */}
           <motion.div key={key} initial={slide ? { opacity: 0, x: slide * 44 } : { opacity: 0, y: 8 }} animate={{ opacity: 1, x: 0, y: 0 }} transition={{ duration: 0.22, ease: [0.32, 0.72, 0, 1] }}>

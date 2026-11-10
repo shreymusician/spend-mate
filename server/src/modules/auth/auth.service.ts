@@ -4,7 +4,7 @@ import { env } from '../../config/env.js';
 import { signAccessToken } from '../../middleware/auth.js';
 import { disconnectUser } from '../../realtime/hub.js';
 import { describeDevice } from '../../utils/device.js';
-import { badRequest, conflict, HttpError, unauthorized } from '../../utils/errors.js';
+import { badRequest, conflict, forbidden, HttpError, unauthorized } from '../../utils/errors.js';
 import { audit } from '../audit/audit.model.js';
 import { User, ageInYears, publicUser } from '../users/user.model.js';
 import { RefreshToken } from './refreshToken.model.js';
@@ -88,6 +88,22 @@ async function recordFailure(userId: unknown) {
 /** Whether an account exists for this (already validated) mobile number. */
 export async function mobileExists(mobile: string): Promise<boolean> {
   return !!(await User.exists({ mobile }));
+}
+
+/**
+ * Asks a signed-in person for their Secret Pin again before something that can't be undone. Wrong tries count toward
+ * the same lock-out as signing in. A wrong Pin answers 403 (not 401), so the app does not think the session ended.
+ */
+export async function confirmPin(userId: string, pin: string) {
+  const user = await User.findById(userId).select('+pinHash +failedPinAttempts +lockedUntil');
+  if (!user) throw unauthorized();
+  assertNotLocked(user);
+  const ok = await bcrypt.compare(pinSecret(user.mobile, pin), user.pinHash);
+  if (!ok) {
+    await recordFailure(user._id);
+    throw forbidden('That isn’t your Secret Pin.');
+  }
+  if (user.failedPinAttempts || user.lockedUntil) await User.updateOne({ _id: user._id }, { failedPinAttempts: 0, $unset: { lockedUntil: 1 } });
 }
 
 export async function login(input: { mobile: string; pin: string; remember?: boolean }, ua?: string) {

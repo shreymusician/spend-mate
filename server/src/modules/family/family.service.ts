@@ -173,3 +173,22 @@ export async function familyOverview(parentId: string, month: string) {
     feed,
   };
 }
+
+/** What parents have written on my entries, newest first: for the Family tab, so entry screens stay personal. */
+export async function commentsOnMine(userId: string) {
+  const mine = await Transaction.find({ user: userId, deletedAt: null }).sort({ occurredAt: -1 }).limit(300).select('title amountPaise type');
+  if (mine.length === 0) return [];
+  const byId = new Map(mine.map((t) => [String(t._id), t]));
+  const rows = await Comment.find({ transaction: { $in: mine.map((t) => t._id) } }).sort({ createdAt: -1 }).limit(20);
+  const authors = await User.find({ _id: { $in: rows.map((r) => r.author) } });
+  return rows.map((r) => {
+    const t = byId.get(String(r.transaction))!;
+    return {
+      id: String(r._id),
+      body: r.body,
+      at: r.createdAt,
+      author: authors.find((a) => String(a._id) === String(r.author))?.name ?? 'Unknown',
+      entry: { id: String(t._id), title: t.title, amountPaise: t.amountPaise, type: t.type },
+    };
+  });
+}

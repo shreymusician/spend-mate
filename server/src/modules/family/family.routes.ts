@@ -43,6 +43,10 @@ familyRouter.post('/sharing', validateBody(z.object({ visibility: z.enum(['share
 
 // ---- Parent's read-only view of a linked child (shared entries only) ----
 
+familyRouter.get('/comments', asyncHandler(async (req, res) => {
+  res.json({ comments: await fam.commentsOnMine(req.userId!) });
+}));
+
 familyRouter.get('/overview', asyncHandler(async (req, res) => {
   const month = z.string().regex(MONTH_RE).default(() => currentMonth()).parse(req.query.month);
   res.json(await fam.familyOverview(req.userId!, month));

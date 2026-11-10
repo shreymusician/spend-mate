@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { Camera, Check, ChevronLeft, UserRound } from 'lucide-react';
-import { useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { Field } from '@/components/ui/Field';
@@ -8,7 +8,6 @@ import { PinPad } from '@/components/ui/PinPad';
 import { Switch } from '@/components/ui/Switch';
 import { useAuth } from '@/contexts/AuthContext';
 import { api, ApiError } from '@/lib/api';
-import { describeThisDevice } from '@/lib/device';
 import { photoToAvatar } from '@/lib/image';
 import { getGuestTheme } from '@/lib/theme';
 import { cn } from '@/lib/utils';
@@ -31,6 +30,19 @@ function tenDigits(raw: string): string {
 }
 const validMobile = (raw: string) => /^[6-9]\d{9}$/.test(tenDigits(raw));
 const spaced = (d: string) => `${d.slice(0, 5)} ${d.slice(5)}`;
+
+/** True on short screens (small phones, or while the keyboard is open), so a page can tighten up instead of scrolling. */
+function useShortScreen(maxHeight = 700) {
+  const q = `(max-height: ${maxHeight}px)`;
+  const [short, setShort] = useState(() => typeof window !== 'undefined' && window.matchMedia(q).matches);
+  useEffect(() => {
+    const m = window.matchMedia(q);
+    const on = () => setShort(m.matches);
+    m.addEventListener('change', on);
+    return () => m.removeEventListener('change', on);
+  }, []);
+  return short;
+}
 
 const slide = {
   initial: (dir: number) => ({ opacity: 0, x: dir * 36 }),
@@ -86,12 +98,12 @@ function Screen({ onBack, progress, title, sub, children, footer }: { onBack: ()
           </div>
         )}
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto px-6 pt-6">
-        <h1 className="text-[32px] font-bold leading-[1.1] tracking-[-0.03em]">{title}</h1>
-        {sub && <p className="mt-2 text-[17px] text-muted">{sub}</p>}
-        <div className="mt-6">{children}</div>
+      <div className="min-h-0 flex-1 overflow-y-auto px-6 pt-6 [@media(max-height:700px)]:pt-2">
+        <h1 className="text-[32px] font-bold leading-[1.1] tracking-[-0.03em] [@media(max-height:700px)]:text-[26px] [@media(max-height:600px)]:text-[24px]!">{title}</h1>
+        {sub && <p className="mt-2 text-[17px] text-muted [@media(max-height:700px)]:text-[15px]">{sub}</p>}
+        <div className="mt-6 [@media(max-height:700px)]:mt-3 [@media(max-height:600px)]:mt-2!">{children}</div>
       </div>
-      {footer && <div className="px-6 pb-5 pt-3">{footer}</div>}
+      {footer && <div className="px-6 pb-5 pt-3 [@media(max-height:700px)]:pb-3 [@media(max-height:700px)]:pt-2">{footer}</div>}
     </div>
   );
 }
@@ -123,7 +135,6 @@ function LoginFlow({ onBack, onSwitch, onForgot, initialMobile = '', notice }: {
   const [pinError, setPinError] = useState('');
   const [busy, setBusy] = useState(false);
   const [remember, setRemember] = useState(true);
-  const thisDevice = useMemo(() => describeThisDevice(), []);
 
   const go = (s: number) => { setDir(s > step ? 1 : -1); setStep(s); };
 
@@ -153,8 +164,7 @@ function LoginFlow({ onBack, onSwitch, onForgot, initialMobile = '', notice }: {
               footer={<div className="space-y-1"><Button type="submit" block>Continue</Button><Button type="button" variant="link" block onClick={onSwitch}>Create a new account</Button></div>}>
               <MobileField value={mobile} onChange={(v) => { setMobile(v); setMobileError(''); }} error={mobileError} />
               <div className="mt-5">
-                <Switch label="Remember me" checked={remember} onChange={setRemember}
-                  hint={remember ? `Stay signed in on this device (${thisDevice}). Turn off on a shared phone or computer.` : 'You’ll sign in again each time you open the app.'} />
+                <Switch label="Remember me" checked={remember} onChange={setRemember} />
               </div>
             </Screen>
           </form>
@@ -189,6 +199,8 @@ function RegisterFlow({ onBack, onSwitch }: { onBack: () => void; onSwitch: () =
   const [avatar, setAvatar] = useState<string | null>(null);
   const [photoErr, setPhotoErr] = useState('');
   const [photoBusy, setPhotoBusy] = useState(false);
+  const short = useShortScreen();
+  const tiny = useShortScreen(600); // very small phones: a little tighter still
   const fileRef = useRef<HTMLInputElement>(null);
   const todayRef = useRef(new Date().toISOString().slice(0, 10));
 
@@ -256,31 +268,31 @@ function RegisterFlow({ onBack, onSwitch }: { onBack: () => void; onSwitch: () =
       <motion.div key={step} custom={dir} variants={slide} initial="initial" animate="animate" exit="exit" transition={{ duration: 0.22, ease: [0.32, 0.72, 0, 1] }} className="h-full">
         {step === 0 && (
           <form onSubmit={step0} className="h-full" noValidate>
-            <Screen onBack={onBack} progress={progress} title="Let’s create your account"
-              footer={<div className="space-y-1"><Button type="submit" block>Continue</Button><Button type="button" variant="link" block onClick={onSwitch}>I already have an account</Button></div>}>
-              <div className="space-y-5">
+            <Screen onBack={onBack} progress={progress} title="Create your account"
+              footer={<div className="space-y-1"><Button type="submit" block>Continue</Button><Button type="button" variant="link" block onClick={onSwitch} className="[@media(max-height:600px)]:min-h-9!">I already have an account</Button></div>}>
+              <div className="space-y-4 [@media(max-height:700px)]:space-y-2.5 [@media(max-height:600px)]:space-y-1.5!">
                 {/* The photo comes first, then name and gender, all on this one page. The photo is optional. */}
                 <div className="flex flex-col items-center">
                   <button type="button" onClick={() => fileRef.current?.click()} disabled={photoBusy} aria-label={avatar ? 'Change your photo' : 'Add a photo'} className="relative rounded-full">
                     <motion.span key={avatar ? 'photo' : 'blank'} className="block" initial={{ scale: 0.85, opacity: 0.4 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', stiffness: 260, damping: 16 }}>
                       {avatar || f.name.trim()
-                        ? <Avatar name={f.name} src={avatar} size={112} />
-                        : <span className="grid place-items-center rounded-full bg-surface-2 text-muted" style={{ width: 112, height: 112 }}><UserRound size={52} strokeWidth={1.6} aria-hidden /></span>}
+                        ? <Avatar name={f.name} src={avatar} size={tiny ? 64 : short ? 80 : 112} />
+                        : <span className="grid place-items-center rounded-full bg-surface-2 text-muted" style={{ width: tiny ? 64 : short ? 80 : 112, height: tiny ? 64 : short ? 80 : 112 }}><UserRound size={tiny ? 30 : short ? 38 : 52} strokeWidth={1.6} aria-hidden /></span>}
                     </motion.span>
-                    <span className="brand-gradient absolute bottom-0 right-0 grid h-9 w-9 place-items-center rounded-full border-[3px] border-bg text-white shadow-[0_8px_18px_-8px_rgba(10,150,120,0.9)]"><Camera size={17} aria-hidden /></span>
+                    <span className="brand-gradient absolute bottom-0 right-0 grid h-8 w-8 place-items-center rounded-full border-[3px] border-bg text-white shadow-[0_8px_18px_-8px_rgba(10,150,120,0.9)]"><Camera size={15} aria-hidden /></span>
                     {photoBusy && <span className="absolute inset-0 grid place-items-center rounded-full bg-black/40 text-[13px] font-semibold text-white">One moment…</span>}
                   </button>
                   <input ref={fileRef} type="file" accept="image/*" className="sr-only" tabIndex={-1} aria-hidden onChange={(e) => pickPhoto(e.target.files?.[0])} />
                   {photoErr
                     ? <p role="alert" className="mt-2 text-center text-[14px] font-medium text-neg">{photoErr}</p>
-                    : <button type="button" onClick={() => fileRef.current?.click()} className="mt-1.5 min-h-9 text-[15px] font-semibold text-accent active:opacity-60">{avatar ? 'Change photo' : 'Add a photo (optional)'}</button>}
+                    : <button type="button" onClick={() => fileRef.current?.click()} className="mt-1 min-h-8 text-[15px] font-semibold text-accent active:opacity-60">{avatar ? 'Change photo' : 'Add a photo (optional)'}</button>}
                 </div>
                 <Field label="Name" autoComplete="name" value={f.name} onChange={(e) => set('name', e.target.value)} error={errors.name} maxLength={60} />
                 <fieldset>
                   <legend className="mb-1.5 px-1 text-[13px] font-semibold uppercase tracking-[0.04em] text-muted">Gender</legend>
                   <div role="radiogroup" aria-label="Gender" className={cn('divide-y divide-line overflow-hidden rounded-[16px] bg-surface shadow-[var(--sm-shadow)] dark:bg-surface-2', errors.gender && 'shake ring-2 ring-neg/70')} key={errors.gender ?? 'ok'}>
                     {GENDERS.map((g) => (
-                      <button key={g.value} type="button" role="radio" aria-checked={f.gender === g.value} onClick={() => set('gender', g.value)} className="flex h-[52px] w-full items-center justify-between px-4 text-left text-[17px] active:bg-surface-2">
+                      <button key={g.value} type="button" role="radio" aria-checked={f.gender === g.value} onClick={() => set('gender', g.value)} className="flex h-[52px] w-full items-center justify-between px-4 text-left text-[17px] active:bg-surface-2 [@media(max-height:700px)]:h-[42px] [@media(max-height:600px)]:h-[38px]!">
                         {g.label}
                         {f.gender === g.value && <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 500, damping: 20 }} className="text-accent"><Check size={22} strokeWidth={3} aria-hidden /></motion.span>}
                       </button>

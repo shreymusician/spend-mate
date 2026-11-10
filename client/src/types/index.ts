@@ -5,7 +5,7 @@ export interface User {
   gender: 'male' | 'female';
   avatarUrl: string | null;
   isMinor: boolean;
-  prefs: { theme: 'dark' | 'light' | 'system'; tone: 'playful' | 'neutral'; pushEnabled: boolean };
+  prefs: { theme: 'dark' | 'light' | 'system'; tone: 'playful' | 'neutral'; pushEnabled: boolean; shareNewEntries?: boolean };
 }
 
 /** This phone or computer, as the server detected it. */

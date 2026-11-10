@@ -18,6 +18,8 @@ const userSchema = new Schema(
       theme: { type: String, enum: ['dark', 'light', 'system'], default: 'light' },
       tone: { type: String, enum: ['playful', 'neutral'], default: 'neutral' },
       pushEnabled: { type: Boolean, default: false },
+      // Whether new entries are shown to linked parents by default. Chosen in the Family tab.
+      shareNewEntries: { type: Boolean, default: true },
     },
   },
   { timestamps: true },

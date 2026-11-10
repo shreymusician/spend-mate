@@ -44,6 +44,7 @@ export const updatePrefsSchema = z
     theme: z.enum(['dark', 'light', 'system']),
     tone: z.enum(['playful', 'neutral']),
     pushEnabled: z.boolean(),
+    shareNewEntries: z.boolean(),
   })
   .partial()
   .strict();

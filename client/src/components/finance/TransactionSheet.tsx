@@ -1,13 +1,13 @@
-import { ChevronDown, Eye, EyeOff } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Chip } from '@/components/ui/Chip';
 import { Field } from '@/components/ui/Field';
 import { Select } from '@/components/ui/Select';
 import { Sheet } from '@/components/ui/Sheet';
-import { Switch } from '@/components/ui/Switch';
 import { TextArea } from '@/components/ui/TextArea';
 import { useToast } from '@/components/ui/Toast';
+import { useAuth } from '@/contexts/AuthContext';
 import { useData } from '@/contexts/DataContext';
 import { api, ApiError } from '@/lib/api';
 import { iconFor, METHOD_LABEL, SOURCE_LABEL } from '@/lib/categories';
@@ -28,17 +28,19 @@ interface Props {
 
 /**
  * Adding an entry should take a few seconds: type the amount, tap a category, Save.
- * Everything else (reason, how it was paid, date, tags, who can see it) is tucked under "More options".
+ * Everything else (reason, how it was paid, date, tags) is tucked under "More options". This form is purely personal:
+ * who may see an entry is decided in the Family tab, never here.
  */
 export function TransactionSheet({ open, onClose, kind = 'expense', editing }: Props) {
   const { categories, family, bump } = useData();
+  const { user } = useAuth();
   const toast = useToast();
-  const hasParent = family.parents.length > 0;
-  const parentNames = family.parents.map((p) => p.user.name).join(' & ');
+  // New entries follow the "share new entries" choice made in the Family tab (and only matter once a parent is linked).
+  const shareByDefault = family.parents.length > 0 && user?.prefs.shareNewEntries !== false;
 
   const blank = () => ({
     amount: '', title: '', reason: '', category: 'food', source: 'pocket_money' as IncomeSource,
-    method: 'upi' as PaymentMethod, merchant: '', tags: '', when: toLocalInput(new Date()), shared: hasParent,
+    method: 'upi' as PaymentMethod, merchant: '', tags: '', when: toLocalInput(new Date()),
   });
   const [f, setF] = useState(blank());
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -57,7 +59,7 @@ export function TransactionSheet({ open, onClose, kind = 'expense', editing }: P
       setF({
         amount: paiseToInput(editing.amountPaise), title: editing.title, reason: editing.reason, category: editing.category,
         source: editing.source ?? 'other', method: editing.paymentMethod, merchant: editing.merchant ?? '',
-        tags: editing.tags.join(', '), when: toLocalInput(new Date(editing.occurredAt)), shared: editing.visibility === 'shared',
+        tags: editing.tags.join(', '), when: toLocalInput(new Date(editing.occurredAt)),
       });
     } else setF(blank());
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -86,13 +88,12 @@ export function TransactionSheet({ open, onClose, kind = 'expense', editing }: P
       merchant: f.merchant.trim(),
       tags: f.tags.split(',').map((t) => t.trim()).filter(Boolean),
       occurredAt: new Date(f.when).toISOString(),
-      visibility: f.shared ? 'shared' : 'private',
       ...(isExpense ? { category: f.category } : { source: f.source }),
     };
     setBusy(true);
     try {
       if (editing) await api(`/transactions/${editing.id}`, { method: 'PATCH', json: body });
-      else await api('/transactions', { method: 'POST', json: { type: isExpense ? 'expense' : 'income', clientId: clientId.current, ...body } });
+      else await api('/transactions', { method: 'POST', json: { type: isExpense ? 'expense' : 'income', clientId: clientId.current, visibility: shareByDefault ? 'shared' : 'private', ...body } });
       bump();
       toast(editing ? 'Changes saved' : isExpense ? 'Spending saved' : 'Money received saved');
       onClose();
@@ -135,22 +136,12 @@ export function TransactionSheet({ open, onClose, kind = 'expense', editing }: P
               <Field label="Date and time" type="datetime-local" value={f.when} onChange={(e) => set('when', e.target.value)} error={errors.when} />
               <Field label="Shop or person" value={f.merchant} onChange={(e) => set('merchant', e.target.value)} maxLength={60} />
               <Field label="Tags" hint="Separate with commas" value={f.tags} onChange={(e) => set('tags', e.target.value)} />
-              {hasParent && (
-                <Switch label={`Show to ${parentNames}`} checked={f.shared} onChange={(v) => set('shared', v)}
-                  hint={f.shared ? 'They can see this entry' : 'Only you can see this entry'} />
-              )}
             </div>
           )}
         </div>
 
         {errors.form && <p role="alert" className="font-medium text-neg">{errors.form}</p>}
-        <div className="sticky bottom-0 -mx-5 -mb-5 space-y-2 border-t border-line bg-surface px-5 pb-5 pt-3">
-          {hasParent && !more && (
-            <button type="button" onClick={() => set('shared', !f.shared)} className="flex min-h-9 w-full items-center justify-center gap-2 text-[14px] text-muted">
-              {f.shared ? <Eye size={16} aria-hidden /> : <EyeOff size={16} aria-hidden />}
-              {f.shared ? `${parentNames} can see this · tap to hide` : 'Only you can see this · tap to show'}
-            </button>
-          )}
+        <div className="sticky bottom-0 -mx-5 -mb-5 border-t border-line bg-surface px-5 pb-5 pt-3">
           <Button type="submit" block disabled={busy}>{busy ? 'Saving…' : 'Save'}</Button>
         </div>
       </form>

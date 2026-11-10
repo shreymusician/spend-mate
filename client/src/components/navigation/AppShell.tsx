@@ -1,6 +1,7 @@
-import { AnimatePresence, motion } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Home, Receipt, UserRound, Users } from 'lucide-react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { TopProgress } from '@/components/ui/TopProgress';
 import { cn } from '@/lib/utils';
 
 const tabs = [
@@ -14,17 +15,18 @@ const tabs = [
 export function AppShell() {
   const { pathname } = useLocation();
   // Child pages under /family share the Family tab's transition key.
-  const key = pathname.startsWith('/family/') ? pathname : pathname;
+  const key = pathname;
 
   return (
     <div className="flex h-dvh w-full items-center justify-center bg-bg">
       <div className="pt-safe relative h-dvh w-full max-w-[430px] overflow-hidden bg-bg sm:h-[min(100dvh,900px)] sm:rounded-[38px] sm:shadow-[0_30px_80px_-30px_rgba(0,0,0,0.5)] sm:ring-1 sm:ring-line">
+        <TopProgress />
         <main className="h-full overflow-y-auto overscroll-contain px-4 pb-[calc(104px+env(safe-area-inset-bottom))] pt-3">
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.div key={key} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2, ease: [0.32, 0.72, 0, 1] }}>
-              <Outlet />
-            </motion.div>
-          </AnimatePresence>
+          {/* One copy of the page, keyed by address: it fades in at once. (Holding the old page on screen while the new
+              one loads made every screen load twice and left taps feeling ignored.) */}
+          <motion.div key={key} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.18, ease: [0.32, 0.72, 0, 1] }}>
+            <Outlet />
+          </motion.div>
         </main>
 
         <nav aria-label="Main" className="glass pb-safe absolute inset-x-0 bottom-0 border-x-0 border-b-0 border-t-[0.5px] border-line">

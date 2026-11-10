@@ -4,6 +4,7 @@ import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { SummaryView } from '@/components/finance/SummaryView';
 import { TransactionList } from '@/components/finance/TransactionList';
 import { Amount } from '@/components/ui/Amount';
+import { BrandLoader } from '@/components/ui/BrandLoader';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Segmented } from '@/components/ui/Segmented';
@@ -34,7 +35,7 @@ export function ChildPage() {
   const summary = useFetch<Summary>(link ? `/family/children/${childId}/summary?month=${currentMonth()}` : null, [tick, version]);
 
   if (familyLoaded && !link) return <Navigate to="/family" replace />;
-  if (!link) return <Skeleton className="h-40 w-full" />;
+  if (!link) return <BrandLoader size="inline" className="pt-24" />;
   const s = summary.data;
   const first = link.user.name.split(' ')[0];
 

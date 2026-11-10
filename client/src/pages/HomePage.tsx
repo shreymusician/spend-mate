@@ -6,6 +6,7 @@ import { TransactionDetail } from '@/components/finance/TransactionDetail';
 import { TransactionRow } from '@/components/finance/TransactionRow';
 import { TransactionSheet } from '@/components/finance/TransactionSheet';
 import { Amount } from '@/components/ui/Amount';
+import { BrandLoader } from '@/components/ui/BrandLoader';
 import { Button } from '@/components/ui/Button';
 import { HomeHeader } from '@/components/ui/HomeHeader';
 import { Card, CardTitle } from '@/components/ui/Card';
@@ -25,7 +26,7 @@ const spring = { type: 'spring' as const, stiffness: 260, damping: 26 };
 /** Someone who follows children gets the family dashboard; everyone else gets their own money. */
 export function HomePage() {
   const { family, familyLoaded } = useData();
-  if (!familyLoaded) return <Skeleton className="mt-8 h-52 w-full rounded-[28px]" />;
+  if (!familyLoaded) return <BrandLoader size="inline" className="pt-24" />;
   return family.children.length > 0 ? <ParentHome /> : <StudentHome />;
 }
 

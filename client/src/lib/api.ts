@@ -3,6 +3,7 @@
  * HttpOnly cookie the browser sends to /api/auth/*. A 401 triggers one
  * (deduplicated) refresh and a single retry.
  */
+import { trackLoad } from '@/lib/loading';
 import type { Device } from '@/types';
 
 let accessToken: string | null = null;
@@ -50,7 +51,13 @@ export function refreshSession(): Promise<string | null> {
   return refreshing;
 }
 
-export async function api<T = unknown>(path: string, init: RequestInit & { json?: unknown } = {}): Promise<T> {
+export function api<T = unknown>(path: string, init: RequestInit & { json?: unknown } = {}): Promise<T> {
+  const p = request<T>(path, init);
+  // Reads (not saves) feed the progress bar, so a slow screen always shows that something is happening.
+  return !init.method || init.method === 'GET' ? trackLoad(p) : p;
+}
+
+async function request<T>(path: string, init: RequestInit & { json?: unknown }): Promise<T> {
   const send = () => {
     const headers = new Headers(init.headers);
     if (init.json !== undefined) headers.set('Content-Type', 'application/json');

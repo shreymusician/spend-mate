@@ -148,7 +148,18 @@ input, textarea { -webkit-user-select: text; user-select: text; }
 .shake { animation: shake-x 0.42s var(--ease-ios); }
 
 /* Loading placeholder: calm pulse. */
-.skeleton { background: var(--sm-surface-2); border-radius: 0.75rem; animation: pulse 1.4s ease-in-out infinite; }
+.skeleton {
+  position: relative; overflow: hidden;
+  background: var(--sm-surface-2); border-radius: 0.75rem;
+}
+/* A soft band of light sweeping across, like the iOS placeholder shimmer. */
+.skeleton::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(100deg, transparent 20%, rgba(255, 255, 255, 0.55) 50%, transparent 80%);
+  transform: translateX(-100%); animation: shimmer 1.4s ease-in-out infinite;
+}
+.dark .skeleton::after { background: linear-gradient(100deg, transparent 20%, rgba(255, 255, 255, 0.09) 50%, transparent 80%); }
+@keyframes shimmer { to { transform: translateX(100%); } }
 @keyframes pulse { 50% { opacity: 0.5; } }
 
 @media (prefers-reduced-motion: reduce) {

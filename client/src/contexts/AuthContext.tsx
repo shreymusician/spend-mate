@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { api, authPost, logoutRequest, refreshSession, setAccessToken, setSessionLostHandler, takeRestoredDevice } from '@/lib/api';
+import { clearFetchCache } from '@/hooks';
 import { forgetSeen, markSeen, shouldGreetOnOpen } from '@/lib/greeting';
 import type { Device, SessionResponse, User } from '@/types';
 
@@ -30,6 +31,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const start = useCallback((s: SessionResponse, g: Greeting) => {
+    clearFetchCache();
     setAccessToken(s.accessToken);
     setUser(s.user);
     setDevice(s.device);
@@ -39,7 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Reopening the app on a remembered device: restore the session and go straight to the greeting.
   useEffect(() => {
-    setSessionLostHandler(() => { setAccessToken(null); setUser(null); setGreeting(null); });
+    setSessionLostHandler(() => { clearFetchCache(); setAccessToken(null); setUser(null); setGreeting(null); });
     (async () => {
       if (await refreshSession()) {
         try {
@@ -75,7 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     dismissGreeting: () => setGreeting(null),
     login: async (mobile, pin, remember) => start(await authPost<SessionResponse>('/login', { mobile, pin, remember }), 'back'),
     register: async (input) => start(await authPost<SessionResponse>('/register', { ...input, remember: true }), 'welcome'),
-    logout: async () => { await logoutRequest().catch(() => {}); forgetSeen(); setAccessToken(null); setUser(null); setDevice(null); setGreeting(null); },
+    logout: async () => { await logoutRequest().catch(() => {}); forgetSeen(); clearFetchCache(); setAccessToken(null); setUser(null); setDevice(null); setGreeting(null); },
     updatePrefs: async (prefs) => {
       const r = await api<{ user: User }>('/users/me/prefs', { method: 'PATCH', json: prefs });
       setUser(r.user);

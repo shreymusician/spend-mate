@@ -4,7 +4,7 @@ import { publish } from './hub.js';
 /** Who can see me, and whom I can see, right now. */
 async function linked(userId: string) {
   const rows = await Relationship.find({ status: 'active', $or: [{ parent: userId }, { child: userId }] });
-  const viewers = rows.filter((r) => String(r.child) === userId).map((r) => String(r.parent));
+  const viewers = rows.filter((r) => String(r.child) === userId && !r.paused).map((r) => String(r.parent));
   const following = rows.filter((r) => String(r.parent) === userId).map((r) => String(r.child));
   return { viewers, following };
 }

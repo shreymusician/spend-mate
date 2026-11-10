@@ -71,7 +71,7 @@ export async function acceptInvite(userId: string, rawCode: string, relationInpu
     for (const l of plan(inviter, userId, relation)) {
       docs.push(await Relationship.findOneAndUpdate(
         { parent: l.viewer, child: l.owner },
-        { $set: { status: 'active', rel: l.kind, createdBy: l.viewer === inviter ? 'parent' : 'child' }, $unset: { revokedAt: 1, revokedBy: 1 } },
+        { $set: { status: 'active', paused: false, rel: l.kind, createdBy: l.viewer === inviter ? 'parent' : 'child' }, $unset: { revokedAt: 1, revokedBy: 1 } },
         { upsert: true, returnDocument: 'after' },
       ));
     }
@@ -101,9 +101,9 @@ export async function listLinks(userId: string) {
   };
   return {
     // they view me: `rel` is what they are to me
-    sharingWith: links.filter((l) => String(l.child) === userId).map((l) => ({ linkId: String(l._id), user: person(l.parent), relation: relationLabel((l.rel ?? 'parent') as Relation, find(l.parent)?.gender) })),
+    sharingWith: links.filter((l) => String(l.child) === userId).map((l) => ({ linkId: String(l._id), user: person(l.parent), kind: (l.rel ?? 'parent') as Relation, relation: relationLabel((l.rel ?? 'parent') as Relation, find(l.parent)?.gender), paused: !!l.paused })),
     // I view them: `rel` is what I am to them, so what they are to me is the opposite
-    following: links.filter((l) => String(l.parent) === userId).map((l) => ({ linkId: String(l._id), user: person(l.child), relation: relationLabel(INVERSE[(l.rel ?? 'parent') as Relation], find(l.child)?.gender) })),
+    following: links.filter((l) => String(l.parent) === userId).map((l) => ({ linkId: String(l._id), user: person(l.child), kind: INVERSE[(l.rel ?? 'parent') as Relation], relation: relationLabel(INVERSE[(l.rel ?? 'parent') as Relation], find(l.child)?.gender), paused: !!l.paused })),
   };
 }
 
@@ -119,9 +119,26 @@ export async function removeLink(userId: string, linkId: string) {
   linkChanged(String(link.parent), String(link.child));
 }
 
+/**
+ * Switch what one person can see of mine on or off, without disconnecting. Only the person being viewed can do this:
+ * a viewer who tries gets "not found", exactly as for a link that is not theirs.
+ */
+export async function setAccess(ownerId: string, linkId: string, allowed: boolean) {
+  if (!Types.ObjectId.isValid(linkId)) throw notFound();
+  const link = await Relationship.findOneAndUpdate(
+    { _id: linkId, status: 'active', child: ownerId },
+    { paused: !allowed },
+    { returnDocument: 'after' },
+  );
+  if (!link) throw notFound('Link not found');
+  await audit(ownerId, 'relationship', link._id, 'update', undefined, { viewer: String(link.parent), owner: String(link.child), access: allowed });
+  linkChanged(String(link.parent), String(link.child));
+  return { linkId: String(link._id), paused: !!link.paused };
+}
+
 /** Throws "not found" unless `viewerId` may view `ownerId`'s shared entries (no hint that the person exists). */
 export async function assertViewerOf(viewerId: string, ownerId: string) {
-  if (!Types.ObjectId.isValid(ownerId) || !(await Relationship.exists({ parent: viewerId, child: ownerId, status: 'active' }))) {
+  if (!Types.ObjectId.isValid(ownerId) || !(await Relationship.exists({ parent: viewerId, child: ownerId, status: 'active', paused: { $ne: true } }))) {
     throw notFound('Not found');
   }
 }
@@ -140,7 +157,7 @@ async function viewableTransaction(userId: string, txId: string) {
   const tx = await Transaction.findOne({ _id: txId, deletedAt: null });
   if (!tx) throw notFound();
   if (String(tx.user) === userId) return { tx, isOwner: true };
-  if (tx.visibility === 'shared' && (await Relationship.exists({ parent: userId, child: tx.user, status: 'active' }))) return { tx, isOwner: false };
+  if (tx.visibility === 'shared' && (await Relationship.exists({ parent: userId, child: tx.user, status: 'active', paused: { $ne: true } }))) return { tx, isOwner: false };
   throw notFound();
 }
 
@@ -171,7 +188,7 @@ export async function addComment(userId: string, txId: string, body: string) {
  * latest entries, plus one combined "latest from your children" feed. Shared entries only, never budgets.
  */
 export async function familyOverview(viewerId: string, month: string) {
-  const links = await Relationship.find({ parent: viewerId, status: 'active' }).sort({ createdAt: 1 });
+  const links = await Relationship.find({ parent: viewerId, status: 'active', paused: { $ne: true } }).sort({ createdAt: 1 });
   const users = await User.find({ _id: { $in: links.map((l) => l.child) } });
   const people = await Promise.all(links.map(async (l) => {
     const personId = String(l.child);

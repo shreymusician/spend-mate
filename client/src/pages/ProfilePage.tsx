@@ -1,7 +1,8 @@
-import { Camera, Moon, Smartphone, Sun } from 'lucide-react';
+﻿import { Camera, Moon, Smartphone, Sun } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
+import { YourData } from '@/components/profile/YourData';
 import { Card, CardTitle } from '@/components/ui/Card';
 import { PageTitle } from '@/components/ui/PageTitle';
 import { Segmented } from '@/components/ui/Segmented';
@@ -85,6 +86,8 @@ export function ProfilePage() {
           {err && <p role="alert" className="text-neg">{err}</p>}
         </Card>
       </div>
+
+      <YourData />
 
       {device && (
         <div>

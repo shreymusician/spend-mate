@@ -38,6 +38,11 @@ familyRouter.post('/invites/accept', acceptLimiter, validateBody(z.object({ code
   res.status(201).json(await fam.acceptInvite(req.userId!, req.body.code, req.body.relation));
 }));
 
+// The person being viewed switches a viewer's access off or on (without ending the connection).
+familyRouter.patch('/links/:id', validateBody(z.object({ access: z.boolean() })), asyncHandler(async (req, res) => {
+  res.json(await fam.setAccess(req.userId!, String(req.params.id), req.body.access));
+}));
+
 familyRouter.delete('/links/:id', asyncHandler(async (req, res) => {
   await fam.removeLink(req.userId!, String(req.params.id));
   res.status(204).end();

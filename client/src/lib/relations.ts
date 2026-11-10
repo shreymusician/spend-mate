@@ -37,3 +37,25 @@ export function directionText(relation: Relation, firstName: string): string {
     default: return `You will each see the entries the other chooses to share.`;
   }
 }
+
+/** Which row of the family tree a kind of relative belongs in: negative is older than you, positive is younger. */
+export function generationOf(kind: string): number {
+  switch (kind) {
+    case 'grandparent': return -2;
+    case 'parent': case 'uncle_aunt': return -1;
+    case 'child': case 'nephew_niece': return 1;
+    case 'grandchild': return 2;
+    default: return 0; // sibling, spouse, cousin, other
+  }
+}
+
+export const GENERATION_LABEL: Record<number, string> = {
+  [-2]: 'Grandparents',
+  [-1]: 'Parents & elders',
+  0: 'Your generation',
+  1: 'Next generation',
+  2: 'Grandchildren',
+};
+
+/** Order within a row: brothers and sisters first, then you, then your spouse, then cousins and others. */
+export const PEER_ORDER: Record<string, number> = { sibling: 0, spouse: 2, cousin: 3, other: 4 };

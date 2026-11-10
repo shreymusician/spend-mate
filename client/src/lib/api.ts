@@ -78,5 +78,21 @@ async function request<T>(path: string, init: RequestInit & { json?: unknown }):
   return (await parse(res)) as T;
 }
 
+/**
+ * Fetches a file (a download) with the same sign-in as every other request, and returns it with the name the server
+ * gave it. If the sign-in has just expired it is renewed once and the request repeated.
+ */
+export async function apiFile(path: string): Promise<{ blob: Blob; filename: string }> {
+  const send = () => fetch(`/api${path}`, { headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {}, credentials: 'include' });
+  let res = await send();
+  if (res.status === 401 && (await refreshSession())) res = await send();
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new ApiError(res.status, body?.error?.message ?? 'Couldn’t download that', body?.error?.details);
+  }
+  const filename = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') ?? '')?.[1] ?? 'spendmate-data';
+  return { blob: await res.blob(), filename };
+}
+
 export const authPost = <T,>(path: string, json: unknown) => api<T>(`/auth${path}`, { method: 'POST', json });
 export const logoutRequest = () => fetch('/api/auth/logout', { method: 'POST', headers: CSRF, credentials: 'include' });

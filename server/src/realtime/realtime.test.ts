@@ -167,3 +167,29 @@ describe('sessions', () => {
     all.forEach((c) => c.ws.close());
   });
 });
+
+describe('access switches and live updates', () => {
+  it('a paused viewer is not nudged about new entries, and both sides hear about the change itself', async () => {
+    const kid = await signup('akid'); const dad = await signup('adad');
+    await link(kid.auth, dad.auth);
+    const kidPhone = await listen(kid.token); const dadPhone = await listen(dad.token);
+    await Promise.all([kidPhone.ready(), dadPhone.ready()]);
+    const linkId = ((await request(app).get('/api/family').set('Authorization', kid.auth)).body.sharingWith as { linkId: string }[])[0]!.linkId;
+
+    kidPhone.got.length = 0; dadPhone.got.length = 0;
+    await request(app).patch(`/api/family/links/${linkId}`).set('Authorization', kid.auth).send({ access: false }); await quiet();
+    expect(dadPhone.got.at(-1)?.topics).toContain('family');   // dad's screen updates the moment access is paused
+    expect(kidPhone.got.at(-1)?.topics).toContain('family');
+
+    dadPhone.got.length = 0;
+    await tx(kid.auth, { visibility: 'shared' }); await quiet();
+    expect(dadPhone.got).toHaveLength(0);                       // nothing about the new entry reaches a paused viewer
+
+    await request(app).patch(`/api/family/links/${linkId}`).set('Authorization', kid.auth).send({ access: true }); await quiet();
+    dadPhone.got.length = 0;
+    await tx(kid.auth, { visibility: 'shared' }); await quiet();
+    expect(dadPhone.got.map((m) => m.topics)).toEqual([['transactions']]); // and after resuming, updates flow again
+    kidPhone.ws.close(); dadPhone.ws.close();
+  });
+});
+

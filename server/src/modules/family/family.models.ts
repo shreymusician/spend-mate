@@ -9,6 +9,8 @@ const relationshipSchema = new Schema(
     // What the viewer is to the owner (parent, grandparent, uncle_aunt, sibling, spouse, cousin, other). Older documents have none and mean 'parent'.
     rel: { type: String, enum: ['parent', 'grandparent', 'uncle_aunt', 'sibling', 'spouse', 'cousin', 'other'], default: 'parent' },
     status: { type: String, enum: ['active', 'revoked'], default: 'active' },
+    // The owner can switch a person's view off and on again without ending the connection. While paused the viewer sees nothing.
+    paused: { type: Boolean, default: false },
     createdBy: { type: String, enum: ['parent', 'child'], required: true },
     revokedAt: { type: Date },
     revokedBy: { type: Types.ObjectId, ref: 'User' },

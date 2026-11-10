@@ -56,7 +56,16 @@ export interface Summary {
 export interface TrendPoint { month: string; incomePaise: number; expensePaise: number }
 
 /** A connection. `relation` is what that person is to you: Father, Sister, Husband... */
-export interface FamilyLink { linkId: string; relation: string; user: { id: string; name: string; avatarUrl: string | null } }
+export interface FamilyLink {
+  linkId: string;
+  /** The word for what they are to you: Father, Sister, Husband... */
+  relation: string;
+  /** The same thing as a kind (parent, sibling, spouse...), which decides where they sit in the family tree. */
+  kind: string;
+  /** The person being viewed has switched this viewer's access off (the connection itself stays). */
+  paused: boolean;
+  user: { id: string; name: string; avatarUrl: string | null };
+}
 /** `sharingWith`: people who can see what you share. `following`: people whose shared entries you can see. */
 export interface FamilyLinks { sharingWith: FamilyLink[]; following: FamilyLink[] }
 

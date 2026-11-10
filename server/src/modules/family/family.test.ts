@@ -400,3 +400,117 @@ describe('relatives of every kind', () => {
   });
 });
 
+
+describe('switching a family memberâ€™s access on and off', () => {
+  type Person = { auth: string; id: string; name: string };
+  let seq = 0;
+  const person = async (name: string): Promise<Person> => {
+    const n = `${name}${seq++}`;
+    const r = await request(app).post('/api/auth/register').send({ name: n, gender: 'female', dob: '1990-01-01', mobile: String(nextMobile++), pin: '4821' });
+    return { auth: `Bearer ${r.body.accessToken}`, id: r.body.user.id, name: n };
+  };
+  /** `owner` shares with `viewer`: the owner makes the code and says "they are my parent". */
+  const share = async (owner: Person, viewer: Person, kind = 'child') => {
+    const inv = await request(app).post('/api/family/invites').set('Authorization', owner.auth).send({});
+    await request(app).post('/api/family/invites/accept').set('Authorization', viewer.auth).send({ code: inv.body.code, relation: kind });
+  };
+  const lists = async (p: Person) => (await request(app).get('/api/family').set('Authorization', p.auth)).body as {
+    sharingWith: { linkId: string; user: { id: string }; kind: string; paused: boolean }[];
+    following: { linkId: string; user: { id: string }; kind: string; paused: boolean }[];
+  };
+  const access = (who: Person, linkId: string, allowed: boolean) => request(app).patch(`/api/family/links/${linkId}`).set('Authorization', who.auth).send({ access: allowed });
+  const viewer = (v: Person, owner: Person, path = 'transactions') => request(app).get(`/api/family/people/${owner.id}/${path}`).set('Authorization', v.auth);
+
+  it('tells each list what kind of relative each person is', async () => {
+    const kid = await person('kid'); const dad = await person('dad');
+    await share(kid, dad, 'child'); // dad says the code-maker is his child
+    const k = await lists(kid); const d = await lists(dad);
+    expect(k.sharingWith[0]).toMatchObject({ kind: 'parent', paused: false });
+    expect(d.following[0]).toMatchObject({ kind: 'child', paused: false });
+  });
+
+  it('when the owner pauses, the viewer can see nothing at all; resuming brings it back', async () => {
+    const kid = await person('kid'); const dad = await person('dad');
+    await share(kid, dad);
+    const shared = await tx(kid.auth, { amountPaise: 5000, title: 'Lunch', visibility: 'shared' });
+    expect((await viewer(dad, kid)).body.transactions).toHaveLength(1);
+
+    const link = (await lists(kid)).sharingWith[0]!;
+    const off = await access(kid, link.linkId, false);
+    expect(off.status).toBe(200);
+    expect(off.body).toMatchObject({ paused: true });
+
+    // everything the viewer could reach is now "not found", as if there were no link
+    expect((await viewer(dad, kid)).status).toBe(404);
+    expect((await viewer(dad, kid, 'summary')).status).toBe(404);
+    expect((await viewer(dad, kid, 'trend')).status).toBe(404);
+    expect((await request(app).get(`/api/family/transactions/${shared.body.transaction.id}/comments`).set('Authorization', dad.auth)).status).toBe(404);
+    expect((await request(app).post(`/api/family/transactions/${shared.body.transaction.id}/comments`).set('Authorization', dad.auth).send({ body: 'hi' })).status).toBe(404);
+    expect((await request(app).get('/api/family/overview').set('Authorization', dad.auth)).body.people).toEqual([]);
+
+    // the connection itself is still there, and both sides can tell it is paused
+    expect((await lists(kid)).sharingWith[0]).toMatchObject({ paused: true });
+    expect((await lists(dad)).following[0]).toMatchObject({ paused: true });
+    // the owner still sees all of their own things
+    expect((await request(app).get('/api/transactions').set('Authorization', kid.auth)).body.transactions).toHaveLength(1);
+
+    expect((await access(kid, link.linkId, true)).body).toMatchObject({ paused: false });
+    expect((await viewer(dad, kid)).body.transactions).toHaveLength(1);
+    expect((await request(app).get(`/api/family/transactions/${shared.body.transaction.id}/comments`).set('Authorization', dad.auth)).status).toBe(200);
+  });
+
+  it('only the person being viewed can switch access', async () => {
+    const kid = await person('kid'); const dad = await person('dad'); const stranger = await person('stranger');
+    await share(kid, dad);
+    const link = (await lists(kid)).sharingWith[0]!;
+    expect((await access(dad, link.linkId, false)).status).toBe(404);       // the viewer cannot pause themselves out or in
+    expect((await access(stranger, link.linkId, false)).status).toBe(404);
+    expect((await access(kid, 'not-an-id', false)).status).toBe(404);
+    expect((await request(app).patch(`/api/family/links/${link.linkId}`).set('Authorization', kid.auth).send({})).status).toBe(400);
+    expect((await request(app).patch(`/api/family/links/${link.linkId}`).set('Authorization', kid.auth).send({ access: 'no' })).status).toBe(400);
+    expect((await request(app).patch(`/api/family/links/${link.linkId}`).send({ access: false })).status).toBe(401);
+    expect((await lists(kid)).sharingWith[0]!.paused).toBe(false); // nothing changed
+  });
+
+  it('pausing one person leaves everyone else alone', async () => {
+    const kid = await person('kid'); const dad = await person('dad'); const mum = await person('mum');
+    await share(kid, dad); await share(kid, mum);
+    await tx(kid.auth, { amountPaise: 700, title: 'shared one', visibility: 'shared' });
+    const dadLink = (await lists(kid)).sharingWith.find((l) => l.user.id === dad.id)!;
+    await access(kid, dadLink.linkId, false);
+    expect((await viewer(dad, kid)).status).toBe(404);
+    expect((await viewer(mum, kid)).body.transactions).toHaveLength(1);
+  });
+
+  it('a paused person does not get live nudges about new entries, but does hear that access changed', async () => {
+    const { Relationship } = await import('./family.models.js');
+    const kid = await person('kid'); const dad = await person('dad');
+    await share(kid, dad);
+    const link = (await lists(kid)).sharingWith[0]!;
+    await access(kid, link.linkId, false);
+    const row = await Relationship.findById(link.linkId);
+    expect(row?.paused).toBe(true);
+    expect(row?.status).toBe('active'); // paused is not the same as ended
+  });
+
+  it('reconnecting after the link was ended always starts with access open', async () => {
+    const kid = await person('kid'); const dad = await person('dad');
+    await share(kid, dad);
+    const link = (await lists(kid)).sharingWith[0]!;
+    await access(kid, link.linkId, false);
+    expect((await request(app).delete(`/api/family/links/${link.linkId}`).set('Authorization', kid.auth)).status).toBe(204);
+    expect((await lists(kid)).sharingWith).toEqual([]);
+    await share(kid, dad);
+    expect((await lists(kid)).sharingWith[0]).toMatchObject({ paused: false });
+    expect((await viewer(dad, kid)).status).toBe(200);
+  });
+
+  it('a link that has been ended cannot be switched', async () => {
+    const kid = await person('kid'); const dad = await person('dad');
+    await share(kid, dad);
+    const link = (await lists(kid)).sharingWith[0]!;
+    await request(app).delete(`/api/family/links/${link.linkId}`).set('Authorization', kid.auth);
+    expect((await access(kid, link.linkId, true)).status).toBe(404);
+  });
+});
+

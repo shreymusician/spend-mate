@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { Check, ChevronLeft } from 'lucide-react';
+import { Camera, Check, ChevronLeft, UserRound } from 'lucide-react';
 import { useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { Field } from '@/components/ui/Field';
 import { PinPad } from '@/components/ui/PinPad';
@@ -8,6 +9,7 @@ import { Switch } from '@/components/ui/Switch';
 import { useAuth } from '@/contexts/AuthContext';
 import { api, ApiError } from '@/lib/api';
 import { describeThisDevice } from '@/lib/device';
+import { photoToAvatar } from '@/lib/image';
 import { getGuestTheme } from '@/lib/theme';
 import { cn } from '@/lib/utils';
 import { LandingPage } from '@/pages/LandingPage';
@@ -184,9 +186,21 @@ function RegisterFlow({ onBack, onSwitch }: { onBack: () => void; onSwitch: () =
   const [f, setF] = useState({ name: '', gender: '', dob: '', mobile: '', pin: '', pin2: '' });
   const [errors, setErrors] = useState<Errors>({});
   const [busy, setBusy] = useState(false);
+  const [avatar, setAvatar] = useState<string | null>(null);
+  const [photoErr, setPhotoErr] = useState('');
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
   const todayRef = useRef(new Date().toISOString().slice(0, 10));
 
   const go = (s: number) => { setDir(s > step ? 1 : -1); setStep(s); };
+
+  async function pickPhoto(file: File | undefined) {
+    if (!file) return;
+    setPhotoErr(''); setPhotoBusy(true);
+    try { setAvatar(await photoToAvatar(file)); }
+    catch (e) { setPhotoErr(e instanceof Error ? e.message : 'That photo couldn’t be used. Please try another one.'); }
+    finally { setPhotoBusy(false); if (fileRef.current) fileRef.current.value = ''; }
+  }
   const set = <K extends keyof typeof f>(k: K, v: (typeof f)[K]) => { setF((s) => ({ ...s, [k]: v })); setErrors((e) => ({ ...e, [k]: undefined })); };
 
   function step0(e: FormEvent) {
@@ -211,13 +225,14 @@ function RegisterFlow({ onBack, onSwitch }: { onBack: () => void; onSwitch: () =
   async function create(pin: string) {
     setBusy(true);
     try { const guest = getGuestTheme();
-      await register({ name: f.name.trim(), gender: f.gender, dob: f.dob, mobile: tenDigits(f.mobile), pin, ...(guest === 'dark' && { theme: guest }) }); }
+      await register({ name: f.name.trim(), gender: f.gender, dob: f.dob, mobile: tenDigits(f.mobile), pin, ...(avatar && { avatar }), ...(guest === 'dark' && { theme: guest }) }); }
     catch (err) {
       // Send the person back to the field the server complained about.
       const message = err instanceof ApiError ? err.message : 'Can’t reach the server. Please check your internet connection.';
       const d = err instanceof ApiError ? err.details ?? {} : {};
       setF((s) => ({ ...s, pin: '', pin2: '' }));
-      if (d.name || d.gender) { setErrors({ name: d.name?.[0], gender: d.gender?.[0] }); go(0); }
+      if (d.avatar) { setAvatar(null); setPhotoErr(d.avatar[0] ?? 'That photo couldn’t be used.'); go(0); }
+      else if (d.name || d.gender) { setErrors({ name: d.name?.[0], gender: d.gender?.[0] }); go(0); }
       else if (d.dob || d.mobile || /mobile|age|born/i.test(message)) { setErrors({ dob: d.dob?.[0], mobile: d.mobile?.[0] ?? (/mobile/i.test(message) ? message : undefined) }); go(1); }
       else { setErrors({ pin: message }); go(2); }
     } finally { setBusy(false); }
@@ -244,6 +259,22 @@ function RegisterFlow({ onBack, onSwitch }: { onBack: () => void; onSwitch: () =
             <Screen onBack={onBack} progress={progress} title="Let’s create your account"
               footer={<div className="space-y-1"><Button type="submit" block>Continue</Button><Button type="button" variant="link" block onClick={onSwitch}>I already have an account</Button></div>}>
               <div className="space-y-5">
+                {/* The photo comes first, then name and gender, all on this one page. The photo is optional. */}
+                <div className="flex flex-col items-center">
+                  <button type="button" onClick={() => fileRef.current?.click()} disabled={photoBusy} aria-label={avatar ? 'Change your photo' : 'Add a photo'} className="relative rounded-full">
+                    <motion.span key={avatar ? 'photo' : 'blank'} className="block" initial={{ scale: 0.85, opacity: 0.4 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', stiffness: 260, damping: 16 }}>
+                      {avatar || f.name.trim()
+                        ? <Avatar name={f.name} src={avatar} size={112} />
+                        : <span className="grid place-items-center rounded-full bg-surface-2 text-muted" style={{ width: 112, height: 112 }}><UserRound size={52} strokeWidth={1.6} aria-hidden /></span>}
+                    </motion.span>
+                    <span className="brand-gradient absolute bottom-0 right-0 grid h-9 w-9 place-items-center rounded-full border-[3px] border-bg text-white shadow-[0_8px_18px_-8px_rgba(10,150,120,0.9)]"><Camera size={17} aria-hidden /></span>
+                    {photoBusy && <span className="absolute inset-0 grid place-items-center rounded-full bg-black/40 text-[13px] font-semibold text-white">One moment…</span>}
+                  </button>
+                  <input ref={fileRef} type="file" accept="image/*" className="sr-only" tabIndex={-1} aria-hidden onChange={(e) => pickPhoto(e.target.files?.[0])} />
+                  {photoErr
+                    ? <p role="alert" className="mt-2 text-center text-[14px] font-medium text-neg">{photoErr}</p>
+                    : <button type="button" onClick={() => fileRef.current?.click()} className="mt-1.5 min-h-9 text-[15px] font-semibold text-accent active:opacity-60">{avatar ? 'Change photo' : 'Add a photo (optional)'}</button>}
+                </div>
                 <Field label="Name" autoComplete="name" value={f.name} onChange={(e) => set('name', e.target.value)} error={errors.name} maxLength={60} />
                 <fieldset>
                   <legend className="mb-1.5 px-1 text-[13px] font-semibold uppercase tracking-[0.04em] text-muted">Gender</legend>

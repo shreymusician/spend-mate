@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { avatarDataUrl } from '../users/avatar.js';
 import { GENDERS } from '../users/user.model.js';
 
 /** Accepts "98765 43210", "+91 98765 43210", "09876543210"; returns the plain 10 digits. */
@@ -25,6 +26,8 @@ export const registerSchema = z.object({
   // Optional: the light/dark choice made on the landing page.
   theme: z.enum(['light', 'dark']).optional(),
   remember: z.boolean().default(true),
+  // Optional profile photo chosen while creating the account.
+  avatar: avatarDataUrl.optional(),
 });
 
 export const loginSchema = z.object({ mobile, pin, remember: z.boolean().default(true) });

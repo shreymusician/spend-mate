@@ -15,7 +15,7 @@ interface AuthState {
   greeting: Greeting;
   dismissGreeting: () => void;
   login: (mobile: string, pin: string, remember: boolean) => Promise<void>;
-  register: (input: { name: string; gender: string; dob: string; mobile: string; pin: string; theme?: 'light' | 'dark' }) => Promise<void>;
+  register: (input: { name: string; gender: string; dob: string; mobile: string; pin: string; theme?: 'light' | 'dark'; avatar?: string }) => Promise<void>;
   logout: () => Promise<void>;
   updatePrefs: (prefs: Partial<User['prefs']>) => Promise<void>;
   /** Pass a small JPEG data URL, or null to remove the photo. */

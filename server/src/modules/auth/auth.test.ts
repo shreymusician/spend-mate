@@ -233,3 +233,38 @@ describe('profile photo', () => {
     expect((await request(app).put('/api/users/me/avatar').send({ image: PNG })).status).toBe(401);
   });
 });
+
+describe('photo at sign-up', () => {
+  const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+  const base = { name: 'Pic', gender: 'female', dob: '2005-04-01', pin: '4821' };
+
+  it('saves the photo chosen while creating the account', async () => {
+    const r = await request(app).post('/api/auth/register').send({ ...base, mobile: '9611111201', avatar: PNG });
+    expect(r.status).toBe(201);
+    expect(r.body.user.avatarUrl).toBe(PNG);
+    const me = await request(app).get('/api/users/me').set('Authorization', `Bearer ${r.body.accessToken}`);
+    expect(me.body.user.avatarUrl).toBe(PNG);
+  });
+
+  it('works without a photo (it is optional)', async () => {
+    const r = await request(app).post('/api/auth/register').send({ ...base, mobile: '9611111202' });
+    expect(r.status).toBe(201);
+    expect(r.body.user.avatarUrl).toBeNull();
+  });
+
+  it('refuses a bad photo and does not create the account', async () => {
+    const bad = (avatar: string, mobile: string) => request(app).post('/api/auth/register').send({ ...base, mobile, avatar });
+    for (const [i, avatar] of [
+      'data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=',
+      'https://example.com/me.png',
+      'data:image/png;base64,' + 'A'.repeat(95_000),
+      'data:image/png;base64,' + Buffer.from('<script>alert(1)</script>').toString('base64'),
+    ].entries()) {
+      const mobile = `96111112${10 + i}`;
+      const r = await bad(avatar, mobile);
+      expect(r.status).toBe(400);
+      expect(r.body.error.details?.avatar?.length ?? 1).toBeGreaterThan(0);
+      expect(await mongoose.connection.db!.collection('users').findOne({ mobile })).toBeNull();
+    }
+  });
+});

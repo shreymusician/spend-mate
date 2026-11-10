@@ -55,7 +55,7 @@ async function session(user: Parameters<typeof publicUser>[0], family: string, u
 
 const deviceFor = (remember: boolean, ua?: string): DeviceInfo => ({ remember, deviceLabel: describeDevice(ua) });
 
-export async function register(input: { name: string; gender: (typeof import('../users/user.model.js').GENDERS)[number]; dob: Date; mobile: string; pin: string; theme?: 'light' | 'dark'; remember?: boolean }, ua?: string) {
+export async function register(input: { name: string; gender: (typeof import('../users/user.model.js').GENDERS)[number]; dob: Date; mobile: string; pin: string; theme?: 'light' | 'dark'; remember?: boolean; avatar?: string }, ua?: string) {
   if (ageInYears(input.dob) < MIN_AGE) throw badRequest(`SpendMate is for ages ${MIN_AGE} and up`);
   if (await User.exists({ mobile: input.mobile })) throw conflict('An account with this mobile number already exists');
   const user = await User.create({
@@ -63,6 +63,7 @@ export async function register(input: { name: string; gender: (typeof import('..
     gender: input.gender,
     dob: input.dob,
     mobile: input.mobile,
+    ...(input.avatar && { avatarUrl: input.avatar }),
     ...(input.theme && { prefs: { theme: input.theme } }),
     pinHash: await hashPin(input.mobile, input.pin),
   });
